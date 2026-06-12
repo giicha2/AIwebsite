@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <radialGradient id="soulGlow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="480" fill="url(#soulGlow)"/>
+  <circle cx="400" cy="210" r="72" fill="#1e293b" stroke="#94a3b8" stroke-width="4"/>
+  <circle cx="400" cy="210" r="28" fill="#38bdf8" opacity="0.85"/>
+  <text x="400" y="360" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="42" font-weight="700" text-anchor="middle">Soul Stone</text>
+  <text x="400" y="395" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="18" text-anchor="middle">Soulslike Action</text>
+</svg>

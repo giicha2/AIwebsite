@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <rect width="800" height="480" fill="#0f172a"/>
+  <rect x="280" y="140" width="240" height="160" rx="24" fill="#ff0000"/>
+  <polygon points="360,190 360,250 430,220" fill="#fff"/>
+  <text x="400" y="360" fill="#fff" font-family="system-ui,sans-serif" font-size="34" font-weight="700" text-anchor="middle">1xTV</text>
+  <text x="400" y="395" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="18" text-anchor="middle">@giicha2</text>
+</svg>

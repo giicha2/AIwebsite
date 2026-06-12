@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <linearGradient id="bloodSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#450a0a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="480" fill="url(#bloodSky)"/>
+  <circle cx="620" cy="90" r="48" fill="#7f1d1d"/>
+  <circle cx="180" cy="120" r="8" fill="#ef4444" opacity="0.8"/>
+  <circle cx="240" cy="180" r="6" fill="#ef4444" opacity="0.6"/>
+  <circle cx="320" cy="140" r="10" fill="#ef4444" opacity="0.7"/>
+  <circle cx="500" cy="200" r="7" fill="#ef4444" opacity="0.5"/>
+  <text x="400" y="340" fill="#fecaca" font-family="system-ui,sans-serif" font-size="36" font-weight="700" text-anchor="middle">Bloodmoon Survivor</text>
+  <text x="400" y="375" fill="#fca5a5" font-family="system-ui,sans-serif" font-size="18" text-anchor="middle">Vampire Survival</text>
+</svg>

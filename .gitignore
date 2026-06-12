@@ -1,0 +1,11 @@
+# Secrets / runtime auth
+writable/blog-auth.json
+writable/blog-sessions.json
+
+# Synology Drive internals
+.SynologyWorkingDirectory/
+
+# OS sync noise
+desktop.ini
+.DS_Store
+Thumbs.db

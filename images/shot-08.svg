@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#1e293b"/>
+  <text x="60" y="100" fill="#22d3ee" font-family="monospace" font-size="14">npm run build</text>
+  <text x="60" y="130" fill="#4ade80" font-family="monospace" font-size="14"> compiled</text>
+  <text x="60" y="160" fill="#94a3b8" font-family="monospace" font-size="14">deploying...</text>
+  <rect x="60" y="200" width="280" height="12" rx="6" fill="#334155"/>
+  <rect x="60" y="200" width="200" height="12" rx="6" fill="#38bdf8"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="480" fill="url(#sky)"/>
+  <polygon points="400,120 420,180 480,180 432,220 450,280 400,245 350,280 368,220 320,180 380,180" fill="#fbbf24"/>
+  <rect x="0" y="380" width="800" height="100" fill="#334155"/>
+  <rect x="180" y="340" width="60" height="40" rx="8" fill="#38bdf8"/>
+  <rect x="520" y="310" width="80" height="70" rx="8" fill="#38bdf8"/>
+  <text x="400" y="430" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="28" font-weight="700" text-anchor="middle">Star Dash</text>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#fef3c7"/>
+  <rect x="40" y="80" width="320" height="240" rx="16" fill="#fff" stroke="#f59e0b" stroke-width="4"/>
+  <text x="200" y="220" fill="#b45309" font-family="system-ui,sans-serif" font-size="24" font-weight="700" text-anchor="middle">Wireframe</text>
+</svg>

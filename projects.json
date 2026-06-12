@@ -1,0 +1,66 @@
+[
+  {
+    "id": "soul-stone",
+    "title": "Soul Stone",
+    "description": "모바일 다크 판타지 액션. 한 손 조작으로 패링과 회피, 보스전의 긴장감을 담은 게임입니다.",
+    "details": "Soul Stone은 모바일에 맞춘 다크 판타지 액션 게임입니다.\n\n짧은 세션으로 고대 유적을 탐험하고, 영혼의 파편을 되찾으며 강력한 보스와 맞섭니다. 터치 기반 패링·회피와 묵직한 타격감을 핵심으로 개발하고 있습니다.",
+    "status": "개발중",
+    "link": "",
+    "links": [],
+    "sections": [
+      {
+        "title": "묵직한 액션 전투",
+        "text": "한순간의 판단이 승패를 가르는 전투를 지향합니다. 적의 움직임을 읽고 패링과 회피로 틈을 만든 뒤, 묵직한 타격으로 역전하는 재미를 모바일 한 손 조작에 맞게 담았습니다.",
+        "media": "",
+        "mediaType": "video"
+      },
+      {
+        "title": "탐험의 재미를 살린 넓은 필드",
+        "text": "좁은 전투장에 갇히지 않고, 둘러볼 만한 공간과 길을 따라 자연스럽게 이동합니다. 다음 목표를 찾아가며 필드를 가로지르는 탐험의 여유를 함께 느낄 수 있도록 구성하고 있습니다.",
+        "media": "",
+        "mediaType": "video"
+      },
+      {
+        "title": "세계를 따라가는 스토리",
+        "text": "잃어버린 영혼의 파편과 고대 유적의 비밀을 따라가며, 플레이어가 직접 세계의 윤곽을 맞춰 가는 서사를 담았습니다. 전투와 탐험 사이에서 이야기가 자연스럽게 이어지도록 연출하고 있습니다.",
+        "media": "",
+        "mediaType": "video"
+      },
+      {
+        "title": "1인 개발 인디의 큰 볼륨",
+        "text": "혼자 기획하고 만들고 있는 프로젝트지만, 짧게 끝나는 체험형이 아닌 오래 손에 붙을 분량을 목표로 합니다. 인디 게임이지만 한 번 시작하면 계속 이어가고 싶은 규모감을 지향합니다.",
+        "media": "",
+        "mediaType": "video"
+      }
+    ],
+    "media": "projects/soul-stone/cover.mp4",
+    "mediaType": "video",
+    "modified": 1781172495
+  },
+  {
+    "id": "vampire-survival",
+    "title": "Bloodmoon Survivor",
+    "description": "모바일 뱀파이어 서바이벌. 한 손으로 조작하는 호드 액션 생존 게임입니다.",
+    "details": "Bloodmoon Survivor는 모바일에 최적화한 탑다운 호드 서바이벌 게임입니다.\n\n밤마다 몰려오는 적을 뚫고 살아남으며, 자동 공격과 스킬 빌드를 조합해 캐릭터를 성장시킵니다. 짧은 런의 반복 재미와 화면을 가득 채우는 압박감을 목표로 합니다.",
+    "status": "개발중",
+    "link": "",
+    "links": [],
+    "sections": [],
+    "media": "projects/vampire-survival/cover.svg",
+    "mediaType": "image",
+    "modified": 1781132881
+  },
+  {
+    "id": "star-dash",
+    "title": "Star Dash",
+    "description": "모바일 캐주얼 러너. 탭 한 번으로 점프하며 장애물을 피하는 가벼운 액션 게임입니다.",
+    "details": "Star Dash는 누구나 바로 즐길 수 있는 모바일 러너 게임입니다.\n\n별을 모으며 스테이지를 클리어하고, 점점 빨라지는 속도와 패턴 변화를 버텨야 합니다. 짧은 플레이 타임과 직관적인 조작을 목표로 기획 중입니다.",
+    "status": "기획중",
+    "link": "",
+    "links": [],
+    "sections": [],
+    "media": "projects/star-dash/cover.svg",
+    "mediaType": "image",
+    "modified": 1781132881
+  }
+]
