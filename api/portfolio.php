@@ -341,8 +341,11 @@ if ($method === "GET") {
         }
 
         $price = (float) $quote["price"];
+        $previousClose = isset($quote["previousClose"]) ? (float) $quote["previousClose"] : $price;
+        // Prefer previous (yesterday) close for KRW conversion, as shown on holdings.
+        $usePrice = $previousClose > 0 ? $previousClose : $price;
         $currency = strtoupper((string) ($quote["currency"] ?? "USD"));
-        $priceKrw = $currency === "KRW" ? $price : $price * $usdKrw;
+        $priceKrw = $currency === "KRW" ? $usePrice : $usePrice * $usdKrw;
 
         echo json_encode(
             [
@@ -351,8 +354,10 @@ if ($method === "GET") {
                 "symbol" => $quote["symbol"] ?: $symbol,
                 "name" => $quote["name"] ?: $query,
                 "currency" => $currency,
-                "price" => $price,
+                "price" => $usePrice,
+                "previousClose" => $previousClose,
                 "priceKrw" => $priceKrw,
+                "previousCloseKrw" => $priceKrw,
                 "usdKrw" => $usdKrw,
             ],
             JSON_UNESCAPED_UNICODE

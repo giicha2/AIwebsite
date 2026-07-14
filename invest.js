@@ -269,13 +269,20 @@
     const query = String(name || "").trim();
     if (!query) return null;
 
-    const bust = window.cacheBust?.() || `?v=${Date.now()}`;
-    const sep = bust.includes("?") ? "&" : "?";
-    const url = `api/portfolio.php${bust}${sep}mode=quote&q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, {
+    const params = new URLSearchParams({
+      mode: "quote",
+      q: query,
+      v: String(Date.now()),
+    });
+    const response = await fetch(`api/portfolio.php?${params.toString()}`, {
       headers: window.blogAuthHeaders?.() || {},
+      cache: "no-store",
     });
     const data = await response.json().catch(() => null);
+
+    if (response.status === 401) {
+      throw new Error("로그인이 필요합니다.");
+    }
 
     if (!response.ok || !data?.ok) {
       throw new Error(data?.error || "시세를 불러오지 못했습니다.");
@@ -284,7 +291,7 @@
     return data;
   }
 
-  function bindSharesCostSync(form, status) {
+  function bindSharesCostSync(form) {
     const nameInput = form.querySelector("[name='holdingName']");
     const sharesInput = form.querySelector("[name='shares']");
     const costInput = form.querySelector("[name='costKrw']");
@@ -294,7 +301,9 @@
     let priceKrw = 0;
     let syncLock = false;
     let quoteTimer = null;
+    let quoteRequestId = 0;
     let lastQuotedName = "";
+    let lastEdited = ""; // "shares" | "cost"
 
     const setHint = (text, isError = false) => {
       if (!quoteHint) return;
@@ -303,29 +312,44 @@
     };
 
     const writeField = (input, value) => {
+      if (!input) return;
       syncLock = true;
       if (Number.isFinite(value) && value > 0) {
         const rounded = input === costInput ? Math.round(value) : Math.round(value * 10000) / 10000;
         input.value = String(rounded);
+      } else if (value === 0 || value === "" || value == null) {
+        // keep empty when invalid
       } else {
         input.value = "";
       }
       syncLock = false;
     };
 
-    const recalculateFromShares = () => {
-      if (syncLock || !(priceKrw > 0) || asCashSelect?.value === "1") return;
-      const shares = Number(sharesInput.value || 0);
-      if (shares > 0) writeField(costInput, shares * priceKrw);
+    const applySharesToCost = () => {
+      if (!(priceKrw > 0) || asCashSelect?.value === "1") return false;
+      const shares = Number(sharesInput?.value || 0);
+      if (!(shares > 0)) return false;
+      writeField(costInput, shares * priceKrw);
+      return true;
     };
 
-    const recalculateFromCost = () => {
-      if (syncLock || !(priceKrw > 0) || asCashSelect?.value === "1") return;
-      const cost = Number(costInput.value || 0);
-      if (cost > 0) writeField(sharesInput, cost / priceKrw);
+    const applyCostToShares = () => {
+      if (!(priceKrw > 0) || asCashSelect?.value === "1") return false;
+      const cost = Number(costInput?.value || 0);
+      if (!(cost > 0)) return false;
+      writeField(sharesInput, cost / priceKrw);
+      return true;
     };
 
-    const refreshQuote = async () => {
+    const syncFromLastEdit = () => {
+      if (lastEdited === "cost") {
+        applyCostToShares();
+      } else {
+        applySharesToCost();
+      }
+    };
+
+    const refreshQuote = async ({ force = false } = {}) => {
       const name = String(nameInput?.value || "").trim();
       const asCash = asCashSelect?.value === "1" || /현금|기타/i.test(name);
 
@@ -333,75 +357,103 @@
         priceKrw = 0;
         lastQuotedName = name;
         setHint("현금/기타: 금액만 입력하면 됩니다.");
-        return;
+        return false;
       }
 
       if (!name) {
         priceKrw = 0;
         lastQuotedName = "";
-        setHint("");
-        return;
+        setHint("종목명을 먼저 입력하면 전일종가로 환산됩니다.");
+        return false;
       }
 
-      if (name === lastQuotedName && priceKrw > 0) {
-        return;
+      if (!force && name === lastQuotedName && priceKrw > 0) {
+        syncFromLastEdit();
+        return true;
       }
 
-      setHint("시세 조회 중...");
+      const requestId = ++quoteRequestId;
+      setHint("전일종가 조회 중...");
+
       try {
         const quote = await fetchQuoteForName(name);
-        lastQuotedName = name;
-        priceKrw = Number(quote.priceKrw) || 0;
+        if (requestId !== quoteRequestId) return false;
 
         if (quote.cash) {
           priceKrw = 0;
+          lastQuotedName = name;
           setHint("현금/기타로 인식되었습니다.");
-          return;
+          return false;
+        }
+
+        priceKrw = Number(quote.priceKrw) || Number(quote.previousCloseKrw) || 0;
+        lastQuotedName = name;
+
+        if (!(priceKrw > 0)) {
+          setHint("전일종가를 가져오지 못했습니다.", true);
+          return false;
         }
 
         const unit = Math.round(priceKrw).toLocaleString("ko-KR");
-        setHint(
-          `시세 ${unit}원/주 (${quote.symbol}${quote.currency && quote.currency !== "KRW" ? `, ${quote.currency}` : ""})`
-        );
-
-        const shares = Number(sharesInput.value || 0);
-        const cost = Number(costInput.value || 0);
-
-        if (shares > 0 && !(cost > 0)) {
-          recalculateFromShares();
-        } else if (cost > 0 && !(shares > 0)) {
-          recalculateFromCost();
-        } else if (shares > 0) {
-          recalculateFromShares();
-        }
+        setHint(`전일종가 ${unit}원/주 · ${quote.symbol}`);
+        syncFromLastEdit();
+        return true;
       } catch (error) {
+        if (requestId !== quoteRequestId) return false;
         priceKrw = 0;
+        lastQuotedName = "";
         setHint(error.message || "시세 조회 실패", true);
+        return false;
       }
     };
 
     const scheduleQuote = () => {
       clearTimeout(quoteTimer);
-      quoteTimer = setTimeout(refreshQuote, 450);
+      quoteTimer = setTimeout(() => {
+        refreshQuote({ force: true });
+      }, 350);
     };
 
-    nameInput?.addEventListener("input", scheduleQuote);
-    nameInput?.addEventListener("change", refreshQuote);
-    asCashSelect?.addEventListener("change", refreshQuote);
+    nameInput?.addEventListener("input", () => {
+      priceKrw = 0;
+      lastQuotedName = "";
+      scheduleQuote();
+    });
+    nameInput?.addEventListener("change", () => refreshQuote({ force: true }));
+    nameInput?.addEventListener("blur", () => refreshQuote({ force: true }));
+    asCashSelect?.addEventListener("change", () => refreshQuote({ force: true }));
 
-    sharesInput?.addEventListener("input", () => {
+    sharesInput?.addEventListener("input", async () => {
       if (syncLock) return;
-      if (!(priceKrw > 0)) scheduleQuote();
-      recalculateFromShares();
+      lastEdited = "shares";
+      if (!(priceKrw > 0)) {
+        await refreshQuote({ force: true });
+      }
+      applySharesToCost();
     });
 
-    costInput?.addEventListener("input", () => {
+    sharesInput?.addEventListener("change", async () => {
       if (syncLock) return;
-      if (!(priceKrw > 0)) scheduleQuote();
-      recalculateFromCost();
+      lastEdited = "shares";
+      await refreshQuote({ force: !(priceKrw > 0) });
+      applySharesToCost();
     });
 
-    form._investGetPriceKrw = () => priceKrw;
+    costInput?.addEventListener("input", async () => {
+      if (syncLock) return;
+      lastEdited = "cost";
+      if (!(priceKrw > 0)) {
+        await refreshQuote({ force: true });
+      }
+      applyCostToShares();
+    });
+
+    costInput?.addEventListener("change", async () => {
+      if (syncLock) return;
+      lastEdited = "cost";
+      await refreshQuote({ force: !(priceKrw > 0) });
+      applyCostToShares();
+    });
   }
 
   function bindInvestUi(state, data) {
@@ -411,7 +463,7 @@
     const rangeButtons = document.querySelectorAll("[data-invest-range]");
 
     if (form) {
-      bindSharesCostSync(form, status);
+      bindSharesCostSync(form);
     }
 
     form?.addEventListener("submit", async (event) => {
@@ -544,8 +596,8 @@
                 <input name="costKrw" type="number" min="0" step="1" placeholder="시세로 자동 환산" />
               </label>
             </div>
-            <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite"></p>
-            <p class="invest-help">종목명 입력 후 수량 또는 금액 중 하나만 넣어도 다른 쪽이 시세로 채워집니다.</p>
+            <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite">종목명 입력 후 수량을 넣으면 전일종가로 금액이 채워집니다.</p>
+            <p class="invest-help">종목명 → 수량(또는 금액) 순으로 입력하세요. 전일종가 × 수량 = 금액.</p>
             <button type="submit" class="invest-submit">추가</button>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>
