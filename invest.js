@@ -133,16 +133,18 @@
 
             return `
               <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
-                <div class="invest-item-main">
-                  <strong>${window.escapeHtml?.(item.name) || item.name}</strong>
-                  <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
+                <div class="invest-item-body">
+                  <div class="invest-item-main">
+                    <strong>${window.escapeHtml?.(item.name) || item.name}</strong>
+                    <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
+                  </div>
+                  <div class="invest-item-meta">
+                    <span>${item.symbol === "CASH" ? "" : `${Number(item.shares).toLocaleString("ko-KR")}주 · `}${quoteNote}</span>
+                    <strong>${formatKrw(item.valueKrw)}</strong>
+                    <span class="invest-item-weight">${item.weight.toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div class="invest-item-meta">
-                  <span>${item.symbol === "CASH" ? "" : `${Number(item.shares).toLocaleString("ko-KR")}주 · `}${quoteNote}</span>
-                  <strong>${formatKrw(item.valueKrw)}</strong>
-                  <span class="invest-item-weight">${item.weight.toFixed(1)}%</span>
-                </div>
-                <button type="button" class="invest-delete-btn" data-id="${window.escapeHtml?.(item.id) || item.id}">삭제</button>
+                <button type="button" class="invest-delete-btn" data-id="${window.escapeHtml?.(item.id) || item.id}" aria-label="삭제">×</button>
               </li>
             `;
           })
@@ -178,6 +180,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: "42%",
         plugins: {
           legend: {
             position: "bottom",
@@ -309,16 +312,24 @@
 
     totalBtn?.addEventListener("click", async () => {
       if (!chartPanel) return;
-      const open = chartPanel.hasAttribute("hidden");
-      if (open) {
-        chartPanel.removeAttribute("hidden");
-        totalBtn.setAttribute("aria-expanded", "true");
-        await drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
-      } else {
+      const isOpen = !chartPanel.hasAttribute("hidden");
+      if (isOpen) {
         chartPanel.setAttribute("hidden", "");
         totalBtn.setAttribute("aria-expanded", "false");
+        const hint = totalBtn.querySelector(".invest-total-hint");
+        if (hint) hint.textContent = "그래프 보기";
+      } else {
+        chartPanel.removeAttribute("hidden");
+        totalBtn.setAttribute("aria-expanded", "true");
+        const hint = totalBtn.querySelector(".invest-total-hint");
+        if (hint) hint.textContent = "그래프 숨기기";
+        await drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
       }
     });
+
+    if (chartPanel && !chartPanel.hasAttribute("hidden")) {
+      drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
+    }
 
     rangeButtons.forEach((button) => {
       button.addEventListener("click", async () => {
@@ -342,17 +353,17 @@
         <div>
           <span class="badge">내 자산</span>
           <h2>투자 현황</h2>
-          <p>전일 종가 기준으로 평가합니다. 총액을 누르면 증감 그래프를 볼 수 있습니다.</p>
+          <p>전일 종가 기준으로 평가합니다. 총액을 누르면 증감 그래프를 접거나 펼 수 있습니다.</p>
         </div>
-        <button type="button" class="invest-total-btn ${changeClass}" id="invest-total-btn" aria-expanded="false">
+        <button type="button" class="invest-total-btn ${changeClass}" id="invest-total-btn" aria-expanded="true">
           <span class="invest-total-label">투자 총액</span>
           <strong>${formatKrw(data.totalKrw)}</strong>
           <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
-          <span class="invest-total-hint">그래프 보기</span>
+          <span class="invest-total-hint">그래프 숨기기</span>
         </button>
       </div>
 
-      <div class="invest-history-panel" id="invest-history-panel" hidden>
+      <div class="invest-history-panel" id="invest-history-panel">
         <div class="invest-range-tabs">
           <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
           <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
@@ -363,7 +374,7 @@
         </div>
       </div>
 
-      <div class="invest-layout">
+      <div class="invest-layout invest-layout--stack">
         <section class="invest-chart-card">
           <h3>자산 비율</h3>
           <div class="invest-pie-wrap">
