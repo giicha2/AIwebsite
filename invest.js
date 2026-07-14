@@ -215,16 +215,14 @@
             return `
               <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
                 ${logoHtml}
-                <div class="invest-item-body">
-                  <div class="invest-item-main">
-                    <strong>${window.escapeHtml?.(item.name) || item.name}</strong>
-                    <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
-                  </div>
-                  <div class="invest-item-meta">
-                    <span>${isCash ? "" : `${Number(item.shares).toLocaleString("ko-KR")}주 · `}${quoteNote}</span>
-                    <strong>${formatKrw(item.valueKrw)}</strong>
-                    <span class="invest-item-weight">${item.weight.toFixed(1)}%</span>
-                  </div>
+                <div class="invest-item-main">
+                  <strong>${window.escapeHtml?.(item.name) || item.name}</strong>
+                  <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
+                </div>
+                <div class="invest-item-quote">${isCash ? quoteNote : `${Number(item.shares).toLocaleString("ko-KR")}주 · ${quoteNote}`}</div>
+                <div class="invest-item-value">
+                  <strong>${formatKrw(item.valueKrw)}</strong>
+                  <span class="invest-item-weight">${item.weight.toFixed(1)}%</span>
                 </div>
                 <button type="button" class="invest-edit-btn" data-edit="${editPayload}" aria-label="수정">수정</button>
                 <button type="button" class="invest-delete-btn" data-id="${window.escapeHtml?.(item.id) || item.id}" aria-label="삭제">×</button>

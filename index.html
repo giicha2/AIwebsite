@@ -97,11 +97,18 @@
 
       .header-inner {
         display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding: 20px 0;
+      }
+
+      .header-top {
+        display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 24px;
-        padding: 20px 0;
-        flex-wrap: wrap;
+        gap: 16px;
+        width: 100%;
       }
 
       .site-brand {
@@ -239,7 +246,8 @@
       }
 
       .theme-toggle-btn {
-        margin-top: 10px;
+        margin: 0;
+        flex-shrink: 0;
         padding: 6px 12px;
         border-radius: 8px;
         border: 1px solid #475569;
@@ -249,6 +257,7 @@
         font-size: 0.75rem;
         font-weight: 600;
         cursor: pointer;
+        white-space: nowrap;
         transition: background 0.2s ease, border-color 0.2s ease;
       }
 
@@ -1720,17 +1729,25 @@
       }
 
       .invest-item {
-        display: flex;
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          "logo main edit del"
+          "logo quote quote quote"
+          "logo value value value";
         align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
+        column-gap: 10px;
+        row-gap: 4px;
+        padding: 10px 12px;
         border-radius: 10px;
         border: 1px solid var(--color-border);
         background: var(--color-surface);
       }
 
       .invest-item-logo {
-        flex: 0 0 auto;
+        grid-area: logo;
+        align-self: start;
+        margin-top: 2px;
         width: 32px;
         height: 32px;
         border-radius: 8px;
@@ -1760,21 +1777,12 @@
         color: #166534;
       }
 
-      .invest-item-body {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px 14px;
-      }
-
       .invest-item-main {
+        grid-area: main;
         display: flex;
         align-items: baseline;
         gap: 8px;
         min-width: 0;
-        max-width: 100%;
       }
 
       .invest-item-main strong {
@@ -1784,21 +1792,31 @@
         white-space: nowrap;
       }
 
-      .invest-item-symbol,
-      .invest-item-meta {
-        font-size: 0.8rem;
+      .invest-item-symbol {
+        flex-shrink: 0;
+        font-size: 0.78rem;
         color: var(--color-subtle);
       }
 
-      .invest-item-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 12px;
-        align-items: center;
-        margin-left: auto;
+      .invest-item-quote {
+        grid-area: quote;
+        min-width: 0;
+        font-size: 0.78rem;
+        color: var(--color-subtle);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      .invest-item-meta strong {
+      .invest-item-value {
+        grid-area: value;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .invest-item-value strong {
         color: var(--color-heading);
         font-size: 0.92rem;
       }
@@ -1813,7 +1831,8 @@
       }
 
       .invest-delete-btn {
-        flex: 0 0 auto;
+        grid-area: del;
+        align-self: start;
         width: 28px;
         height: 28px;
         padding: 0;
@@ -1834,7 +1853,8 @@
       }
 
       .invest-edit-btn {
-        flex: 0 0 auto;
+        grid-area: edit;
+        align-self: start;
         padding: 4px 10px;
         border-radius: 8px;
         border: 1px solid var(--color-border-strong);
@@ -1849,6 +1869,30 @@
       .invest-edit-btn:hover {
         border-color: #38bdf8;
         color: #38bdf8;
+      }
+
+      @media (min-width: 801px) {
+        .invest-item {
+          grid-template-columns: 32px minmax(0, 1.1fr) minmax(0, 1.4fr) auto auto auto;
+          grid-template-areas: "logo main quote value edit del";
+          align-items: center;
+          row-gap: 0;
+        }
+
+        .invest-item-logo,
+        .invest-edit-btn,
+        .invest-delete-btn {
+          align-self: center;
+          margin-top: 0;
+        }
+
+        .invest-item-quote {
+          justify-self: stretch;
+        }
+
+        .invest-item-value {
+          justify-self: end;
+        }
       }
 
       .invest-empty {
@@ -2058,31 +2102,14 @@
         }
 
         .invest-item {
-          flex-wrap: wrap;
-          gap: 8px;
           padding: 8px 10px;
         }
 
-        .invest-item-body {
-          flex: 1 1 calc(100% - 120px);
-          min-width: 0;
-        }
-
         .invest-item-symbol {
+          max-width: 7.5em;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          max-width: 9em;
-        }
-
-        .invest-item-meta {
-          margin-left: 0;
-          width: 100%;
-          justify-content: flex-start;
-        }
-
-        .invest-edit-btn {
-          margin-left: auto;
         }
 
         .invest-footer-note {
@@ -2148,8 +2175,11 @@
         }
 
         .header-inner {
-          flex-direction: column;
-          align-items: flex-start;
+          align-items: stretch;
+        }
+
+        .header-top {
+          width: 100%;
         }
 
         nav ul {
@@ -2230,24 +2260,35 @@
   <body>
     <header>
       <div class="container header-inner">
-        <div class="site-brand">
-          <a
-            href="https://www.youtube.com/@giicha2"
-            class="brand-youtube-link"
-            target="_blank"
-            rel="noopener"
-            aria-label="1인개발TV YouTube 채널"
+        <div class="header-top">
+          <div class="site-brand">
+            <a
+              href="https://www.youtube.com/@giicha2"
+              class="brand-youtube-link"
+              target="_blank"
+              rel="noopener"
+              aria-label="1인개발TV YouTube 채널"
+            >
+              <img
+                class="brand-youtube-logo"
+                src="images/youtube-1indevtv.jpg"
+                alt="1인개발TV YouTube"
+                width="40"
+                height="40"
+                loading="eager"
+              />
+            </a>
+            <h1 class="logo"><a href="#home" class="logo-link" aria-label="홈으로 이동"><span>1인</span>개발TV</a></h1>
+          </div>
+          <button
+            type="button"
+            class="theme-toggle-btn"
+            id="theme-toggle-btn"
+            aria-pressed="false"
+            aria-label="사이트 다크 모드 전환"
           >
-            <img
-              class="brand-youtube-logo"
-              src="images/youtube-1indevtv.jpg"
-              alt="1인개발TV YouTube"
-              width="40"
-              height="40"
-              loading="eager"
-            />
-          </a>
-          <h1 class="logo"><a href="#home" class="logo-link" aria-label="홈으로 이동"><span>1인</span>개발TV</a></h1>
+            다크 모드
+          </button>
         </div>
         <nav>
           <ul>
@@ -2278,15 +2319,6 @@
             <span class="visitor-label">총 방문자</span>
             <span class="visitor-count" id="visitor-count">-</span>
             <span class="visitor-today" id="visitor-today">오늘 -명</span>
-            <button
-              type="button"
-              class="theme-toggle-btn"
-              id="theme-toggle-btn"
-              aria-pressed="false"
-              aria-label="사이트 다크 모드 전환"
-            >
-              다크 모드
-            </button>
           </div>
         </div>
         <div class="calendar-widget" id="calendar-widget"></div>
