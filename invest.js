@@ -370,7 +370,7 @@
     }
 
     if (!response.ok || !data?.ok) {
-      const detail = data?.symbol ? ` (${data.symbol})` : "";
+      const detail = data?.detail ? ` — ${data.detail}` : data?.symbol ? ` (${data.symbol})` : "";
       throw new Error((data?.error || "시세를 불러오지 못했습니다.") + detail);
     }
 

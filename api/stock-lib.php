@@ -1,8 +1,16 @@
 <?php
 require_once __DIR__ . "/blog-auth-lib.php";
 
-function httpGetJson($url, $timeout = 14)
+$GLOBALS["HTTP_LAST_ERROR"] = "";
+
+function httpLastError()
 {
+    return (string) ($GLOBALS["HTTP_LAST_ERROR"] ?? "");
+}
+
+function httpGetJson($url, $timeout = 12)
+{
+    $GLOBALS["HTTP_LAST_ERROR"] = "";
     $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
     $headerLines = [
         "Accept: application/json,text/plain,*/*",
@@ -10,10 +18,12 @@ function httpGetJson($url, $timeout = 14)
         "Referer: https://m.stock.naver.com/",
     ];
 
+    $errors = [];
+
     if (function_exists("curl_init")) {
         foreach ([true, false] as $verifySsl) {
             $ch = curl_init($url);
-            curl_setopt_array($ch, [
+            $opts = [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_CONNECTTIMEOUT => $timeout,
@@ -23,9 +33,27 @@ function httpGetJson($url, $timeout = 14)
                 CURLOPT_SSL_VERIFYPEER => $verifySsl,
                 CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
                 CURLOPT_ENCODING => "",
-            ]);
+            ];
+            if (defined("CURL_IPRESOLVE_V4")) {
+                $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+            }
+            // Common Synology CA bundle locations
+            foreach ([
+                "/etc/ssl/certs/ca-certificates.crt",
+                "/etc/ssl/cert.pem",
+                "/usr/share/ssl/certs/ca-bundle.crt",
+                "/usr/syno/etc/ssl/certs.pem",
+            ] as $ca) {
+                if ($verifySsl && is_readable($ca)) {
+                    $opts[CURLOPT_CAINFO] = $ca;
+                    break;
+                }
+            }
+            curl_setopt_array($ch, $opts);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $errno = curl_errno($ch);
+            $err = curl_error($ch);
             curl_close($ch);
 
             if ($body !== false && $code > 0 && $code < 400) {
@@ -33,35 +61,79 @@ function httpGetJson($url, $timeout = 14)
                 if (is_array($data)) {
                     return $data;
                 }
+                $errors[] = "SSL=" . ($verifySsl ? "1" : "0") . " HTTP{$code} JSON decode failed";
+            } else {
+                $errors[] = "SSL=" . ($verifySsl ? "1" : "0")
+                    . " HTTP{$code} errno={$errno} err=" . ($err !== "" ? $err : "empty");
             }
         }
-
-        return null;
+    } else {
+        $errors[] = "curl_init unavailable";
     }
 
-    foreach ([true, false] as $verifySsl) {
-        $context = stream_context_create([
-            "http" => [
-                "method" => "GET",
-                "timeout" => $timeout,
-                "header" => "User-Agent: {$ua}\r\n" . implode("\r\n", $headerLines) . "\r\n",
-            ],
-            "ssl" => [
-                "verify_peer" => $verifySsl,
-                "verify_peer_name" => $verifySsl,
-            ],
-        ]);
-        $body = @file_get_contents($url, false, $context);
-        if ($body === false) {
-            continue;
+    if (ini_get("allow_url_fopen")) {
+        foreach ([true, false] as $verifySsl) {
+            $context = stream_context_create([
+                "http" => [
+                    "method" => "GET",
+                    "timeout" => $timeout,
+                    "header" => "User-Agent: {$ua}\r\n" . implode("\r\n", $headerLines) . "\r\n",
+                ],
+                "ssl" => [
+                    "verify_peer" => $verifySsl,
+                    "verify_peer_name" => $verifySsl,
+                ],
+            ]);
+            $body = @file_get_contents($url, false, $context);
+            if ($body === false) {
+                $errors[] = "fopen SSL=" . ($verifySsl ? "1" : "0") . " failed";
+                continue;
+            }
+            $data = json_decode($body, true);
+            if (is_array($data)) {
+                return $data;
+            }
+            $errors[] = "fopen SSL=" . ($verifySsl ? "1" : "0") . " JSON decode failed";
         }
-        $data = json_decode($body, true);
-        if (is_array($data)) {
-            return $data;
-        }
+    } else {
+        $errors[] = "allow_url_fopen=0";
     }
 
+    $GLOBALS["HTTP_LAST_ERROR"] = implode(" | ", $errors);
     return null;
+}
+
+function httpProbeUrl($url)
+{
+    $started = microtime(true);
+    $data = httpGetJson($url, 8);
+    return [
+        "url" => $url,
+        "ok" => is_array($data),
+        "ms" => (int) round((microtime(true) - $started) * 1000),
+        "error" => is_array($data) ? "" : httpLastError(),
+        "keys" => is_array($data) ? array_slice(array_keys($data), 0, 8) : [],
+    ];
+}
+
+function httpProbeReport()
+{
+    $curlVersion = function_exists("curl_version") ? curl_version() : null;
+
+    return [
+        "php" => PHP_VERSION,
+        "curl" => function_exists("curl_init"),
+        "curlSsl" => is_array($curlVersion) ? !empty($curlVersion["features"]) && ((int) $curlVersion["features"] & (defined("CURL_VERSION_SSL") ? CURL_VERSION_SSL : 0)) : null,
+        "curlVersion" => is_array($curlVersion) ? ($curlVersion["version"] ?? null) : null,
+        "allowUrlFopen" => (bool) ini_get("allow_url_fopen"),
+        "openssl" => extension_loaded("openssl"),
+        "probes" => [
+            httpProbeUrl("https://m.stock.naver.com/api/stock/005930/basic"),
+            httpProbeUrl("https://api.stock.naver.com/stock/TSLA.O/basic"),
+            httpProbeUrl("https://open.er-api.com/v6/latest/USD"),
+            httpProbeUrl("https://query1.finance.yahoo.com/v8/finance/chart/TSLA?range=5d&interval=1d"),
+        ],
+    ];
 }
 
 function normalizeStockSymbol($symbol)
@@ -608,7 +680,8 @@ function fetchStockQuote($symbol)
     return [
         "symbol" => $symbol,
         "ok" => false,
-        "error" => "시세를 가져오지 못했습니다. (Naver/Yahoo)",
+        "error" => "시세를 가져오지 못했습니다. NAS에서 외부시세 서버에 연결되지 않습니다.",
+        "detail" => httpLastError(),
         "attempts" => $attempts,
     ];
 }

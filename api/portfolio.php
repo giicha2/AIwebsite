@@ -332,6 +332,11 @@ if ($method === "GET") {
 
     $mode = $_GET["mode"] ?? "";
 
+    if ($mode === "netcheck") {
+        echo json_encode(httpProbeReport(), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if ($mode === "quote") {
         $query = trim((string) ($_GET["q"] ?? $_GET["symbol"] ?? $_GET["name"] ?? ""));
 
@@ -377,6 +382,7 @@ if ($method === "GET") {
                     "ok" => false,
                     "symbol" => $symbol,
                     "error" => $quote["error"] ?? "시세를 가져오지 못했습니다.",
+                    "detail" => $quote["detail"] ?? httpLastError(),
                     "attempts" => $quote["attempts"] ?? [],
                     "usdKrw" => $usdKrw,
                     "usdKrwSource" => $fx["source"] ?? "unknown",
