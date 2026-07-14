@@ -164,6 +164,20 @@
     });
   }
 
+  function sortHoldingsByValue(holdings, mode) {
+    const list = Array.isArray(holdings) ? holdings.slice() : [];
+    const desc = mode !== "value-asc";
+    list.sort((a, b) => {
+      const av = Number(a?.valueKrw) || 0;
+      const bv = Number(b?.valueKrw) || 0;
+      if (bv === av) {
+        return String(a?.name || "").localeCompare(String(b?.name || ""), "ko");
+      }
+      return desc ? bv - av : av - bv;
+    });
+    return list;
+  }
+
   function holdingsListHtml(holdings) {
     if (!holdings.length) {
       return `<p class="invest-empty">등록된 종목이 없습니다. 아래에서 추가해 보세요.</p>`;
@@ -757,12 +771,19 @@
         await drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
       });
     });
+
+    document.getElementById("invest-sort-btn")?.addEventListener("click", async () => {
+      state.sortMode = state.sortMode === "value-asc" ? "value-desc" : "value-asc";
+      await paintInvestPage(state, data);
+    });
   }
 
   async function paintInvestPage(state, data) {
     destroyCharts(state);
     const content = document.getElementById("content");
-    const holdings = data.holdings || [];
+    if (!state.sortMode) state.sortMode = "value-desc";
+    const holdings = sortHoldingsByValue(data.holdings || [], state.sortMode);
+    const sortDesc = state.sortMode !== "value-asc";
     const changeClass =
       data.changeKrw > 0 ? "is-up" : data.changeKrw < 0 ? "is-down" : "";
 
@@ -787,9 +808,9 @@
                 </div>
               </div>
               <div class="invest-range-tabs">
-                <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
-                <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
-                <button type="button" class="invest-range-btn" data-invest-range="monthly">월간</button>
+                <button type="button" class="invest-range-btn${state.rangeMode === "daily" ? " is-active" : ""}" data-invest-range="daily">일간</button>
+                <button type="button" class="invest-range-btn${state.rangeMode === "weekly" ? " is-active" : ""}" data-invest-range="weekly">주간</button>
+                <button type="button" class="invest-range-btn${state.rangeMode === "monthly" ? " is-active" : ""}" data-invest-range="monthly">월간</button>
               </div>
             </div>
             <div class="invest-line-wrap">
@@ -804,7 +825,17 @@
         </section>
 
         <section class="invest-side">
-          <h3>보유 종목</h3>
+          <div class="invest-side-head">
+            <h3>보유 종목</h3>
+            <button
+              type="button"
+              class="invest-sort-btn"
+              id="invest-sort-btn"
+              data-sort="${sortDesc ? "value-desc" : "value-asc"}"
+              title="금액순 정렬"
+              aria-label="보유 종목 금액순 정렬"
+            >금액 ${sortDesc ? "높은순 ↓" : "낮은순 ↑"}</button>
+          </div>
           ${holdingsListHtml(holdings)}
 
           <form class="invest-add-form" id="invest-add-form" autocomplete="off">
@@ -842,6 +873,7 @@
       pieChart: null,
       lineChart: null,
       rangeMode: "daily",
+      sortMode: "value-desc",
     };
 
     content.className = "hero hero--invest";
