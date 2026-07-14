@@ -10,16 +10,16 @@
 |---|---|
 | **From** | PC |
 | **When** | 2026-07-14 |
-| **Commit context** | No duplicate holdings + edit amount |
+| **Commit context** | Compact + add bar for holdings |
 
 ## Done
 
-- 같은 심볼(현금 포함) 중복 추가 차단 → 기존 항목 upsert
-- 보유 종목 「수정」으로 수량·투자금액 업데이트
+- 종목 추가 UI: `+ | 종목 | 수량 | 금액` 한 줄 입력바로 단순화
+- 수량↔금액 전일종가 자동 환산 유지, 수정 시 ✓
 
 ## Next
 
-- Drive 동기화 후 `#invest` Ctrl+F5로 중복/수정 확인
+- Drive 동기화 후 `#invest` Ctrl+F5로 추가 바 UI 확인
 
 ## Watch out
 
