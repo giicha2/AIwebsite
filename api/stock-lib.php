@@ -353,16 +353,35 @@ function fetchNaverKrQuote($symbol)
     ];
 }
 
-function fetchUsdKrwRate()
+function fetchUsdKrwQuote()
 {
     $chart = fetchYahooChart("KRW=X", "5d", "1d");
     $quote = $chart ? extractQuoteFromChart($chart) : null;
 
     if ($quote && $quote["price"] > 0) {
-        return (float) $quote["price"];
+        return [
+            "rate" => (float) $quote["price"],
+            "source" => "yahoo",
+        ];
     }
 
-    return 1350.0;
+    $data = httpGetJson("https://open.er-api.com/v6/latest/USD");
+    if (is_array($data) && isset($data["rates"]["KRW"]) && (float) $data["rates"]["KRW"] > 0) {
+        return [
+            "rate" => (float) $data["rates"]["KRW"],
+            "source" => "exchangerate-api",
+        ];
+    }
+
+    return [
+        "rate" => 1490.0,
+        "source" => "fallback",
+    ];
+}
+
+function fetchUsdKrwRate()
+{
+    return fetchUsdKrwQuote()["rate"];
 }
 
 function fetchStockQuote($symbol)

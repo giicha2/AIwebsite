@@ -1854,17 +1854,36 @@
         display: none;
       }
 
-      .invest-amount-hangul {
-        margin: 8px 0 0;
+      .invest-add-meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
         min-height: 1.2em;
+      }
+
+      .invest-amount-hangul {
+        margin: 0;
+        margin-left: auto;
+        text-align: right;
         font-size: 0.88rem;
         font-weight: 600;
         color: var(--color-heading);
         letter-spacing: -0.01em;
+        white-space: nowrap;
       }
 
       .invest-amount-hangul:empty {
         display: none;
+      }
+
+      .invest-quote-hint {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+        font-size: 0.82rem;
+        color: var(--color-subtle);
       }
 
       .invest-quote-hint:empty,
@@ -1872,7 +1891,23 @@
         display: none;
       }
 
+      .invest-fx-rate {
+        margin: 18px 0 0;
+        text-align: right;
+        font-size: 0.82rem;
+        color: var(--color-faint);
+      }
+
       @media (max-width: 800px) {
+        .invest-add-meta {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .invest-amount-hangul {
+          white-space: normal;
+        }
+
         .invest-add-row {
           grid-template-columns: 40px 1fr 1fr;
         }

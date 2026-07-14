@@ -463,8 +463,23 @@
         }
 
         const unit = Math.round(priceKrw).toLocaleString("ko-KR");
-        const source = quote.source ? ` · ${quote.source}` : "";
-        setHint(`${quote.symbol} · 전일종가 ${unit}원${source}`);
+        const fx = Number(quote.usdKrw) > 0 ? Number(quote.usdKrw) : 0;
+        let hint = `${quote.symbol} · 전일종가 ${unit}원`;
+        if (quote.currency && quote.currency !== "KRW" && Number(quote.price) > 0) {
+          hint = `${quote.symbol} · 전일종가 ${Number(quote.price).toLocaleString("en-US")} ${quote.currency} → ${unit}원`;
+          if (fx > 0) {
+            hint += ` (환율 ${fx.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원)`;
+          }
+        }
+        setHint(`${hint} · 시세 적용됨`);
+        // Prefer filling the empty side from live previous-close.
+        const shares = Number(sharesInput?.value || 0);
+        const cost = Number(costInput?.value || 0);
+        if (shares > 0) {
+          lastEdited = "shares";
+        } else if (cost > 0) {
+          lastEdited = "cost";
+        }
         syncFromLastEdit();
         updateAmountHangul();
         return true;
@@ -754,12 +769,16 @@
               <input name="costKrw" type="number" min="0" step="1" placeholder="금액" inputmode="numeric" />
               <button type="button" class="invest-add-cancel" id="invest-edit-cancel" hidden title="취소" aria-label="수정 취소">×</button>
             </div>
-            <p class="invest-amount-hangul" id="invest-amount-hangul" aria-live="polite"></p>
-            <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite"></p>
+            <div class="invest-add-meta">
+              <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite"></p>
+              <p class="invest-amount-hangul" id="invest-amount-hangul" aria-live="polite"></p>
+            </div>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>
         </section>
       </div>
+
+      <p class="invest-fx-rate">환율 USD/KRW · ${Number(data.usdKrw || 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원${data.usdKrwSource && data.usdKrwSource !== "fallback" ? "" : data.usdKrwSource === "fallback" ? " (참고치)" : ""}</p>
     `;
 
     await drawPie(state, holdings);

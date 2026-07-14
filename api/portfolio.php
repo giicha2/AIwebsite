@@ -245,7 +245,8 @@ function buildSeries($history, $mode)
 
 function portfolioResponse($portfolio)
 {
-    $usdKrw = fetchUsdKrwRate();
+    $fx = fetchUsdKrwQuote();
+    $usdKrw = (float) $fx["rate"];
     [$rows, $totalKrw] = enrichHoldings($portfolio["holdings"], $usdKrw);
     recordHistorySnapshot($portfolio, $totalKrw);
     savePortfolio($portfolio);
@@ -259,6 +260,7 @@ function portfolioResponse($portfolio)
         "ok" => true,
         "authenticated" => true,
         "usdKrw" => $usdKrw,
+        "usdKrwSource" => $fx["source"] ?? "unknown",
         "totalKrw" => $totalKrw,
         "changeKrw" => $change,
         "changePct" => $changePct,
@@ -366,7 +368,8 @@ if ($method === "GET") {
         }
 
         $quote = fetchStockQuote($symbol);
-        $usdKrw = fetchUsdKrwRate();
+        $fx = fetchUsdKrwQuote();
+        $usdKrw = (float) $fx["rate"];
 
         if (!$quote || empty($quote["ok"])) {
             echo json_encode(
@@ -375,6 +378,7 @@ if ($method === "GET") {
                     "symbol" => $symbol,
                     "error" => $quote["error"] ?? "시세를 가져오지 못했습니다.",
                     "usdKrw" => $usdKrw,
+                    "usdKrwSource" => $fx["source"] ?? "unknown",
                 ],
                 JSON_UNESCAPED_UNICODE
             );
@@ -400,6 +404,7 @@ if ($method === "GET") {
                 "priceKrw" => $priceKrw,
                 "previousCloseKrw" => $priceKrw,
                 "usdKrw" => $usdKrw,
+                "usdKrwSource" => $fx["source"] ?? "unknown",
                 "source" => $quote["source"] ?? "yahoo",
             ],
             JSON_UNESCAPED_UNICODE
