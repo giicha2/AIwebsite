@@ -781,8 +781,10 @@
             <div class="invest-total-head">
               <div class="invest-total-summary">
                 <span class="invest-total-label">투자 총액</span>
-                <strong>${formatKrw(data.totalKrw)}</strong>
-                <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
+                <div class="invest-total-row">
+                  <strong>${formatKrw(data.totalKrw)}</strong>
+                  <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
+                </div>
               </div>
               <div class="invest-range-tabs">
                 <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
