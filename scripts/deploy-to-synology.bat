@@ -15,10 +15,10 @@ if not exist "%DRIVE_ROOT%" (
 if not exist "%DRIVE_SITE%" mkdir "%DRIVE_SITE%"
 
 echo Deploying to Synology Drive...
-robocopy "%SRC%" "%DRIVE_SITE%" /E /XD .git Docs .cursor "shots\thumbs" "videos\thumbs" /XF desktop.ini blog-auth.json blog-sessions.json portfolio.json /.DS_Store /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%SRC%" "%DRIVE_SITE%" /E /XD .git Docs .cursor "shots\thumbs" "videos\thumbs" /XF desktop.ini .DS_Store blog-auth.json blog-sessions.json portfolio.json /NFL /NDL /NJH /NJS /nc /ns /np
 set "RC1=%ERRORLEVEL%"
 
-robocopy "%SRC%" "%DRIVE_ROOT%" /E /XD .git Docs .cursor "shots\thumbs" "videos\thumbs" MyWebsite git "Unreal Projects" .SynologyWorkingDirectory /XF desktop.ini blog-auth.json blog-sessions.json portfolio.json /.DS_Store /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%SRC%" "%DRIVE_ROOT%" /E /XD .git Docs .cursor "shots\thumbs" "videos\thumbs" MyWebsite git "Unreal Projects" .SynologyWorkingDirectory /XF desktop.ini .DS_Store blog-auth.json blog-sessions.json portfolio.json /NFL /NDL /NJH /NJS /nc /ns /np
 set "RC2=%ERRORLEVEL%"
 
 rem robocopy: 0-7 = success with differences
