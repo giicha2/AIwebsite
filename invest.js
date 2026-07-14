@@ -134,6 +134,17 @@
                 ? "현금/기타"
                 : `전일종가 ${Number(item.price).toLocaleString("ko-KR")} ${item.currency}`
               : item.quoteError || "시세 갱신 실패";
+            const isCash = item.symbol === "CASH";
+            const editPayload = encodeURIComponent(
+              JSON.stringify({
+                id: item.id,
+                name: item.name,
+                symbol: item.symbol,
+                shares: item.shares,
+                costKrw: isCash ? item.valueKrw : item.costKrw > 0 ? item.costKrw : item.valueKrw,
+                asCash: isCash,
+              })
+            );
 
             return `
               <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
@@ -143,11 +154,12 @@
                     <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
                   </div>
                   <div class="invest-item-meta">
-                    <span>${item.symbol === "CASH" ? "" : `${Number(item.shares).toLocaleString("ko-KR")}주 · `}${quoteNote}</span>
+                    <span>${isCash ? "" : `${Number(item.shares).toLocaleString("ko-KR")}주 · `}${quoteNote}</span>
                     <strong>${formatKrw(item.valueKrw)}</strong>
                     <span class="invest-item-weight">${item.weight.toFixed(1)}%</span>
                   </div>
                 </div>
+                <button type="button" class="invest-edit-btn" data-edit="${editPayload}" aria-label="수정">수정</button>
                 <button type="button" class="invest-delete-btn" data-id="${window.escapeHtml?.(item.id) || item.id}" aria-label="삭제">×</button>
               </li>
             `;
@@ -456,6 +468,56 @@
     });
   }
 
+  function setFormEditMode(form, holding) {
+    const title = form.querySelector("h3");
+    const submit = form.querySelector("button[type='submit']");
+    const cancel = form.querySelector("#invest-edit-cancel");
+    const idInput = form.querySelector("[name='editId']");
+    const nameInput = form.querySelector("[name='holdingName']");
+    const sharesInput = form.querySelector("[name='shares']");
+    const costInput = form.querySelector("[name='costKrw']");
+    const asCashSelect = form.querySelector("[name='asCash']");
+    const hint = form.querySelector("#invest-quote-hint");
+
+    if (!holding) {
+      if (idInput) idInput.value = "";
+      if (title) title.textContent = "종목 추가";
+      if (submit) submit.textContent = "추가";
+      cancel?.setAttribute("hidden", "");
+      form.reset();
+      if (asCashSelect) asCashSelect.value = "0";
+      if (hint) {
+        hint.textContent = "종목명 입력 후 수량을 넣으면 전일종가로 금액이 채워집니다.";
+        hint.className = "invest-quote-hint";
+      }
+      return;
+    }
+
+    if (idInput) idInput.value = holding.id || "";
+    if (title) title.textContent = "종목 수정";
+    if (submit) submit.textContent = "금액 저장";
+    cancel?.removeAttribute("hidden");
+    if (nameInput) nameInput.value = holding.name || "";
+    if (asCashSelect) {
+      asCashSelect.value = holding.asCash || holding.symbol === "CASH" ? "1" : "0";
+    }
+    if (sharesInput) {
+      sharesInput.value =
+        holding.asCash || holding.symbol === "CASH" ? "" : String(holding.shares ?? "");
+    }
+    if (costInput) {
+      const cost = Number(holding.costKrw || holding.valueKrw || 0);
+      costInput.value = cost > 0 ? String(Math.round(cost)) : "";
+    }
+    if (hint) {
+      hint.textContent = "수량 또는 금액을 바꾼 뒤 「금액 저장」을 누르세요. 같은 종목은 덮어씁니다.";
+      hint.className = "invest-quote-hint";
+    }
+
+    nameInput?.dispatchEvent(new Event("change"));
+    form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
   function bindInvestUi(state, data) {
     const form = document.getElementById("invest-add-form");
     const status = document.getElementById("invest-form-status");
@@ -477,6 +539,7 @@
       const name = String(fd.get("holdingName") || "").trim();
       const shares = Number(fd.get("shares") || 0);
       const costKrw = Number(fd.get("costKrw") || 0);
+      const editId = String(fd.get("editId") || "").trim();
       const asCash = fd.get("asCash") === "1" || /현금|기타/i.test(name);
 
       const payload = {
@@ -486,6 +549,10 @@
         asCash: asCash ? 1 : 0,
       };
 
+      if (editId) {
+        payload.id = editId;
+      }
+
       if (asCash) {
         payload.priceKrw = costKrw || shares;
       }
@@ -493,11 +560,39 @@
       try {
         const next = await mutatePortfolio("POST", payload);
         await paintInvestPage(state, next);
+        const freshStatus = document.getElementById("invest-form-status");
+        if (freshStatus && next.message) {
+          freshStatus.className = "blog-status";
+          freshStatus.textContent = next.message;
+        }
       } catch (error) {
         status.className = "blog-status error";
-        status.textContent = error.message || "추가 실패";
+        status.textContent = error.message || "저장 실패";
         submit.disabled = false;
       }
+    });
+
+    form?.querySelector("#invest-edit-cancel")?.addEventListener("click", () => {
+      setFormEditMode(form, null);
+      if (status) {
+        status.textContent = "";
+        status.className = "blog-status";
+      }
+    });
+
+    document.querySelectorAll(".invest-edit-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        try {
+          const holding = JSON.parse(decodeURIComponent(button.dataset.edit || ""));
+          setFormEditMode(form, holding);
+          if (status) {
+            status.textContent = `「${holding.name}」 수정 중`;
+            status.className = "blog-status";
+          }
+        } catch (_error) {
+          alert("수정 정보를 불러오지 못했습니다.");
+        }
+      });
     });
 
     document.querySelectorAll(".invest-delete-btn").forEach((button) => {
@@ -575,6 +670,7 @@
 
           <form class="invest-add-form" id="invest-add-form">
             <h3>종목 추가</h3>
+            <input type="hidden" name="editId" value="" />
             <div class="invest-form-grid">
               <label>
                 종목명
@@ -597,8 +693,11 @@
               </label>
             </div>
             <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite">종목명 입력 후 수량을 넣으면 전일종가로 금액이 채워집니다.</p>
-            <p class="invest-help">종목명 → 수량(또는 금액) 순으로 입력하세요. 전일종가 × 수량 = 금액.</p>
-            <button type="submit" class="invest-submit">추가</button>
+            <p class="invest-help">같은 종목을 다시 넣으면 새로 추가되지 않고 수량·금액이 업데이트됩니다. 목록의 「수정」으로도 바꿀 수 있습니다.</p>
+            <div class="invest-form-actions">
+              <button type="submit" class="invest-submit">추가</button>
+              <button type="button" class="invest-cancel-btn" id="invest-edit-cancel" hidden>수정 취소</button>
+            </div>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>
         </section>

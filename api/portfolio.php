@@ -273,6 +273,47 @@ function portfolioResponse($portfolio)
     ];
 }
 
+function holdingSymbolKey($holding)
+{
+    $symbol = normalizeStockSymbol($holding["symbol"] ?? "");
+
+    if (isCashSymbol($symbol) || $symbol === "") {
+        return "CASH";
+    }
+
+    return $symbol;
+}
+
+function findHoldingIndexBySymbol($holdings, $symbol)
+{
+    $key = holdingSymbolKey(["symbol" => $symbol]);
+
+    foreach ($holdings as $index => $holding) {
+        if (!is_array($holding)) {
+            continue;
+        }
+
+        if (holdingSymbolKey($holding) === $key) {
+            return (int) $index;
+        }
+    }
+
+    return -1;
+}
+
+function findHoldingIndexById($holdings, $id)
+{
+    $id = (string) $id;
+
+    foreach ($holdings as $index => $holding) {
+        if ((string) ($holding["id"] ?? "") === $id) {
+            return (int) $index;
+        }
+    }
+
+    return -1;
+}
+
 $method = $_SERVER["REQUEST_METHOD"] ?? "GET";
 
 if ($method === "GET") {
@@ -387,6 +428,7 @@ if ($method === "POST") {
     $shares = (float) ($input["shares"] ?? 0);
     $costKrw = (float) ($input["costKrw"] ?? 0);
     $priceKrw = isset($input["priceKrw"]) ? (float) $input["priceKrw"] : null;
+    $editId = trim((string) ($input["id"] ?? ""));
     $asCash = !empty($input["asCash"])
         || isCashSymbol($symbolInput)
         || preg_match('/현금|기타|cash|rest|other/iu', $name);
@@ -447,15 +489,17 @@ if ($method === "POST") {
 
             if ($shares <= 0 && $costKrw > 0 && $quote["price"] > 0) {
                 $usdKrw = fetchUsdKrwRate();
+                $prev = isset($quote["previousClose"]) && $quote["previousClose"] > 0
+                    ? (float) $quote["previousClose"]
+                    : (float) $quote["price"];
                 $priceKrwUnit = strtoupper((string) $quote["currency"]) === "KRW"
-                    ? (float) $quote["price"]
-                    : (float) $quote["price"] * $usdKrw;
+                    ? $prev
+                    : $prev * $usdKrw;
                 if ($priceKrwUnit > 0) {
                     $shares = $costKrw / $priceKrwUnit;
                 }
             }
         } elseif ($shares <= 0 && $costKrw > 0) {
-            // keep cost as fallback value later; still need a share count for non-cash
             http_response_code(400);
             echo json_encode(
                 ["error" => "시세를 가져오지 못해 금액만으로는 수량을 환산할 수 없습니다. 수량을 입력해 주세요."],
@@ -480,7 +524,31 @@ if ($method === "POST") {
         ];
     }
 
-    $portfolio["holdings"][] = $holding;
+    $existingIndex = -1;
+
+    if ($editId !== "") {
+        $existingIndex = findHoldingIndexById($portfolio["holdings"], $editId);
+        if ($existingIndex < 0) {
+            http_response_code(404);
+            echo json_encode(["error" => "수정할 종목을 찾을 수 없습니다."], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    } else {
+        $existingIndex = findHoldingIndexBySymbol($portfolio["holdings"], $holding["symbol"]);
+    }
+
+    $updated = false;
+
+    if ($existingIndex >= 0) {
+        $prev = $portfolio["holdings"][$existingIndex];
+        $holding["id"] = (string) ($prev["id"] ?? $holding["id"]);
+        $holding["created"] = (int) ($prev["created"] ?? $holding["created"]);
+        $holding["updated"] = time();
+        $portfolio["holdings"][$existingIndex] = $holding;
+        $updated = true;
+    } else {
+        $portfolio["holdings"][] = $holding;
+    }
 
     if (!savePortfolio($portfolio)) {
         http_response_code(500);
@@ -488,7 +556,12 @@ if ($method === "POST") {
         exit;
     }
 
-    echo json_encode(portfolioResponse($portfolio), JSON_UNESCAPED_UNICODE);
+    $response = portfolioResponse($portfolio);
+    $response["updated"] = $updated;
+    $response["message"] = $updated
+        ? "같은 종목이 있어 투자 금액·수량을 업데이트했습니다."
+        : "종목을 추가했습니다.";
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -511,42 +584,87 @@ if ($method === "DELETE") {
 
 if ($method === "PUT") {
     $id = (string) ($input["id"] ?? "");
-    $found = false;
+    $index = findHoldingIndexById($portfolio["holdings"], $id);
 
-    foreach ($portfolio["holdings"] as &$holding) {
-        if ((string) ($holding["id"] ?? "") !== $id) {
-            continue;
+    if ($index < 0) {
+        http_response_code(404);
+        echo json_encode(["error" => "종목을 찾을 수 없습니다."], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $holding = $portfolio["holdings"][$index];
+    $symbol = holdingSymbolKey($holding);
+
+    if (isset($input["name"])) {
+        $holding["name"] = trim((string) $input["name"]);
+    }
+
+    if ($symbol === "CASH" || !empty($input["asCash"])) {
+        $priceKrw = null;
+        if (isset($input["priceKrw"])) {
+            $priceKrw = (float) $input["priceKrw"];
+        } elseif (isset($input["costKrw"])) {
+            $priceKrw = (float) $input["costKrw"];
+        } elseif (isset($input["shares"])) {
+            $priceKrw = (float) $input["shares"];
         }
 
-        $found = true;
+        if ($priceKrw === null || $priceKrw <= 0) {
+            http_response_code(400);
+            echo json_encode(["error" => "현금/기타 금액을 입력해 주세요."], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
 
-        if (isset($input["name"])) {
-            $holding["name"] = trim((string) $input["name"]);
-        }
-        if (isset($input["symbol"])) {
-            $holding["symbol"] = normalizeStockSymbol($input["symbol"]);
-        }
+        $holding["symbol"] = "CASH";
+        $holding["shares"] = 1;
+        $holding["costKrw"] = $priceKrw;
+        $holding["priceKrw"] = $priceKrw;
+    } else {
         if (isset($input["shares"])) {
             $holding["shares"] = (float) $input["shares"];
         }
         if (isset($input["costKrw"])) {
             $holding["costKrw"] = (float) $input["costKrw"];
         }
-        if (isset($input["priceKrw"])) {
-            $holding["priceKrw"] = (float) $input["priceKrw"];
-        }
-        break;
-    }
-    unset($holding);
 
-    if (!$found) {
-        http_response_code(404);
-        echo json_encode(["error" => "종목을 찾을 수 없습니다."], JSON_UNESCAPED_UNICODE);
+        $shares = (float) ($holding["shares"] ?? 0);
+        $costKrw = (float) ($holding["costKrw"] ?? 0);
+
+        if ($shares <= 0 && $costKrw > 0) {
+            $quote = fetchStockQuote($symbol);
+            if ($quote && !empty($quote["ok"]) && $quote["price"] > 0) {
+                $usdKrw = fetchUsdKrwRate();
+                $prev = isset($quote["previousClose"]) && $quote["previousClose"] > 0
+                    ? (float) $quote["previousClose"]
+                    : (float) $quote["price"];
+                $unit = strtoupper((string) $quote["currency"]) === "KRW" ? $prev : $prev * $usdKrw;
+                if ($unit > 0) {
+                    $holding["shares"] = $costKrw / $unit;
+                    $shares = $holding["shares"];
+                }
+            }
+        }
+
+        if ($shares <= 0) {
+            http_response_code(400);
+            echo json_encode(["error" => "수량을 입력해 주세요."], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+
+    $holding["updated"] = time();
+    $portfolio["holdings"][$index] = $holding;
+
+    if (!savePortfolio($portfolio)) {
+        http_response_code(500);
+        echo json_encode(["error" => "저장에 실패했습니다."], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    savePortfolio($portfolio);
-    echo json_encode(portfolioResponse($portfolio), JSON_UNESCAPED_UNICODE);
+    $response = portfolioResponse($portfolio);
+    $response["updated"] = true;
+    $response["message"] = "투자 금액·수량을 업데이트했습니다.";
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     exit;
 }
 

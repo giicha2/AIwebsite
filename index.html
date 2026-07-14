@@ -1741,6 +1741,47 @@
         background: rgba(220, 38, 38, 0.08);
       }
 
+      .invest-edit-btn {
+        flex: 0 0 auto;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-form-bg);
+        color: var(--color-muted);
+        font: inherit;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .invest-edit-btn:hover {
+        border-color: #38bdf8;
+        color: #38bdf8;
+      }
+
+      .invest-form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .invest-cancel-btn {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--color-border-strong);
+        background: transparent;
+        color: var(--color-muted);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .invest-cancel-btn[hidden] {
+        display: none;
+      }
+
       .invest-empty {
         margin: 0;
         padding: 18px;

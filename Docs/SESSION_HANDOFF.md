@@ -10,16 +10,16 @@
 |---|---|
 | **From** | PC |
 | **When** | 2026-07-14 |
-| **Commit context** | Total+chart unify, shares↔cost sync |
+| **Commit context** | No duplicate holdings + edit amount |
 
 ## Done
 
-- 투자 총액 + 증감 그래프를 한 패널로 통합 (토글 제거, 항상 표시)
-- 종목 추가 시 수량↔금액 시세 자동 환산 (quote API `mode=quote&q=`)
+- 같은 심볼(현금 포함) 중복 추가 차단 → 기존 항목 upsert
+- 보유 종목 「수정」으로 수량·투자금액 업데이트
 
 ## Next
 
-- Drive 동기화 후 `#invest` Ctrl+F5로 총액 패널·수량/금액 환산 확인
+- Drive 동기화 후 `#invest` Ctrl+F5로 중복/수정 확인
 
 ## Watch out
 
