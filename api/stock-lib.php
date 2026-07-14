@@ -190,11 +190,24 @@ function httpProbeReport()
 
 function normalizeStockSymbol($symbol)
 {
-    $symbol = strtoupper(trim((string) $symbol));
-    $symbol = str_replace(" ", "", $symbol);
+    $symbol = trim((string) $symbol);
+    $symbol = preg_replace('/\s+/u', '', $symbol);
+    // Keep Hangul as-is; only upper ASCII ticker letters.
+    if (function_exists("mb_strtoupper")) {
+        $symbol = preg_replace_callback('/[A-Za-z]+/', function ($m) {
+            return strtoupper($m[0]);
+        }, $symbol);
+    } else {
+        $symbol = strtoupper($symbol);
+    }
 
     if ($symbol === "") {
         return "";
+    }
+
+    // Preferred / common Samsung tickers (exact only — never map 우 → 보통주)
+    if (in_array($symbol, ["삼성전자우", "삼성전자우선주", "005935"], true)) {
+        return "005935.KS";
     }
 
     if (in_array($symbol, ["삼성전자", "SAMSUNG", "005930"], true)) {
@@ -230,6 +243,9 @@ function stockAliasMap()
         "META" => "META",
         "넷플릭스" => "NFLX",
         "NETFLIX" => "NFLX",
+        "삼성전자우" => "005935.KS",
+        "삼성전자우선주" => "005935.KS",
+        "005935" => "005935.KS",
         "삼성전자" => "005930.KS",
         "SAMSUNG" => "005930.KS",
         "SK하이닉스" => "000660.KS",
@@ -240,6 +256,7 @@ function stockAliasMap()
         "KAKAO" => "035720.KS",
         "현대차" => "005380.KS",
         "현대자동차" => "005380.KS",
+        "현대차우" => "005385.KS",
         "LG에너지솔루션" => "373220.KS",
         "기아" => "000270.KS",
     ];
@@ -289,11 +306,40 @@ function naverSearchStock($query)
         return null;
     }
 
-    $first = $items[0];
-    $code = (string) ($first["code"] ?? "");
-    $reuters = (string) ($first["reutersCode"] ?? $code);
-    $nation = strtoupper((string) ($first["nationCode"] ?? ""));
-    $name = (string) ($first["name"] ?? $code);
+    $picked = null;
+    $queryNorm = preg_replace('/\s+/u', '', $query);
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $name = preg_replace('/\s+/u', '', (string) ($item["name"] ?? ""));
+        $code = (string) ($item["code"] ?? "");
+        if ($name === $queryNorm || $code === $queryNorm || strcasecmp($code, $queryNorm) === 0) {
+            $picked = $item;
+            break;
+        }
+    }
+
+    // Prefer preferred-share style names when query asks for 우/우선주
+    if ($picked === null && preg_match('/우|우선/u', $queryNorm)) {
+        foreach ($items as $item) {
+            $name = (string) ($item["name"] ?? "");
+            if (preg_match('/우|우선/u', $name)) {
+                $picked = $item;
+                break;
+            }
+        }
+    }
+
+    if ($picked === null) {
+        $picked = $items[0];
+    }
+
+    $code = (string) ($picked["code"] ?? "");
+    $reuters = (string) ($picked["reutersCode"] ?? $code);
+    $nation = strtoupper((string) ($picked["nationCode"] ?? ""));
+    $name = (string) ($picked["name"] ?? $code);
 
     if ($reuters === "") {
         return null;
@@ -369,12 +415,13 @@ function resolveStockSymbolFromQuery($query)
     }
 
     $aliases = stockAliasMap();
+    $queryCompact = preg_replace('/\s+/u', '', $query);
     $aliasKey = function_exists("mb_strtoupper")
-        ? mb_strtoupper($query, "UTF-8")
-        : strtoupper($query);
+        ? mb_strtoupper($queryCompact, "UTF-8")
+        : strtoupper($queryCompact);
 
-    if (isset($aliases[$query])) {
-        return normalizeStockSymbol($aliases[$query]);
+    if (isset($aliases[$query]) || isset($aliases[$queryCompact])) {
+        return normalizeStockSymbol($aliases[$queryCompact] ?? $aliases[$query]);
     }
 
     foreach ($aliases as $key => $symbol) {
@@ -386,7 +433,7 @@ function resolveStockSymbolFromQuery($query)
         }
     }
 
-    $normalized = normalizeStockSymbol($query);
+    $normalized = normalizeStockSymbol($queryCompact !== "" ? $queryCompact : $query);
 
     if (
         preg_match('/^\d{6}\.(KS|KQ)$/', $normalized)
