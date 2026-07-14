@@ -184,7 +184,7 @@
             const logoHtml = isCash
               ? `<span class="invest-item-logo invest-item-logo--cash" aria-hidden="true">₩</span>`
               : logo
-                ? `<img class="invest-item-logo" src="${window.escapeHtml?.(logo) || logo}" alt="" width="32" height="32" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.hidden=false" /><span class="invest-item-logo invest-item-logo--fallback" hidden aria-hidden="true">${window.escapeHtml?.(initial) || initial}</span>`
+                ? `<img class="invest-item-logo" src="${window.escapeHtml?.(logo) || logo}" alt="" width="32" height="32" loading="lazy" decoding="async" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'invest-item-logo invest-item-logo--fallback',textContent:${JSON.stringify(initial)},ariaHidden:'true'}))" />`
                 : `<span class="invest-item-logo invest-item-logo--fallback" aria-hidden="true">${window.escapeHtml?.(initial) || initial}</span>`;
 
             const editPayload = encodeURIComponent(
