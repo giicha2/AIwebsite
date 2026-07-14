@@ -799,7 +799,6 @@
           <div class="invest-pie-wrap">
             <canvas id="invest-pie" aria-label="자산 비율 원형 그래프"></canvas>
           </div>
-          <p class="invest-note">예시 기본값: 테슬라 / 삼성전자 / 나머지(현금). 시세·수량에 따라 비율이 달라집니다.</p>
         </section>
 
         <section class="invest-side">
