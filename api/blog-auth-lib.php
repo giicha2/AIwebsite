@@ -57,6 +57,15 @@ function resolveWritableDir()
 
 function authConfigFile()
 {
+    // Prefer an existing readable password file (Share_Web may be read-only for PHP writes).
+    foreach (writableDirCandidates() as $dir) {
+        $file = $dir . "/blog-auth.json";
+
+        if (is_file($file) && is_readable($file)) {
+            return $file;
+        }
+    }
+
     return resolveWritableDir() . "/blog-auth.json";
 }
 
