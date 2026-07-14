@@ -1,0 +1,49 @@
+---
+description: Pull latest from GitHub before starting work on MyWebsite
+alwaysApply: true
+---
+
+# Git sync — pull before work (MyWebsite)
+
+When the user starts a work session (first message asking to implement, fix, edit, test, or continue project work), **pull from GitHub first** before making changes.
+
+## What you must do
+
+1. Run the sync-start script for the current OS **before** editing code or running project tasks.
+2. Report the result briefly: up to date, pulled N commits, or pull failed.
+3. If pull fails (conflicts, dirty state), stop and help resolve before continuing.
+4. After a successful pull, **read** `Docs/SESSION_HANDOFF.md` and briefly report to the user: **From / When / Done / Next / Watch out** (skip empty sections). This is the Mac↔PC Cursor memo.
+
+## Commands
+
+**Windows** (work folder `D:\WebWork\MyWebsite`):
+
+```bat
+D:\WebWork\MyWebsite\scripts\sync-start.bat
+```
+
+**Mac** (work folder `~/Documents/MyWebsite`):
+
+```bash
+./scripts/sync-start.sh
+```
+
+Equivalent: `git pull --rebase` in the project root. Remote is GitHub `origin` (`giicha2/AIwebsite`).
+
+## When to skip
+
+- User explicitly says they already pulled, or only wants a question answered with no code changes.
+- Conversation is clearly continuing the same session right after a successful pull in this chat.
+
+## After pull
+
+- Proceed with the user's task.
+- Push at end of work per `git-sync-finish.mdc` (user says "올려줘" or after a substantial task, offer once).
+
+## Paths (do not edit inside Synology Drive as the main workspace)
+
+| Role | Windows | Mac |
+|------|---------|-----|
+| Work folder | `D:\WebWork\MyWebsite` | `~/Documents/MyWebsite` |
+| Git origin | `https://github.com/giicha2/AIwebsite.git` | same |
+| Drive folder | deploy/reference only — not the Cursor root | same |

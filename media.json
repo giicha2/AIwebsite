@@ -1,16 +1,24 @@
 {
   "photos": [
     {
+      "src": "shots/화면 캡처 2026-06-13.png",
+      "name": "화면 캡처 2026-06-13",
+      "modified": 1781348308,
+      "thumb": "shots/thumbs/화면 캡처 2026-06-13.jpg"
+    },
+    {
       "src": "shots/화면 캡처 2026-06-10 192400.png",
       "name": "화면 캡처 2026-06-10 192400",
-      "modified": 1781094180
+      "modified": 1781094180,
+      "thumb": "shots/thumbs/화면 캡처 2026-06-10 192400.jpg"
     }
   ],
   "videos": [
     {
       "src": "videos/Tutorial_JumpAttack.mp4",
       "name": "Tutorial_JumpAttack",
-      "modified": 1781094180
+      "modified": 1781094180,
+      "poster": "videos/thumbs/Tutorial_JumpAttack.jpg"
     }
   ]
 }

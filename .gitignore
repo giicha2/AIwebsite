@@ -5,6 +5,10 @@ writable/blog-sessions.json
 # Synology Drive internals
 .SynologyWorkingDirectory/
 
+# Generated gallery thumbnails
+shots/thumbs/
+videos/thumbs/
+
 # OS sync noise
 desktop.ini
 .DS_Store

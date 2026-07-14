@@ -50,8 +50,59 @@ let projectsCache = null;
 
 const cacheBust = () => `?v=${Date.now()}`;
 
-function mediaSrc(path) {
-  return encodeURI(path) + cacheBust();
+function mediaSrc(path, modified) {
+  if (!path) return "";
+  const version =
+    typeof modified === "number" && modified > 0 ? `?v=${modified}` : "";
+  return `${encodeURI(path)}${version}`;
+}
+
+function safeAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+}
+
+function galleryThumbApiSrc(item) {
+  const params = new URLSearchParams({
+    path: item.src,
+    w: "480",
+    v: String(item.modified || 0),
+  });
+
+  return `api/thumb.php?${params.toString()}`;
+}
+
+function galleryImageThumbSrc(item) {
+  if (item.thumb) {
+    return mediaSrc(item.thumb, item.modified);
+  }
+
+  const parts = item.src.split("/");
+  const folder = parts[0];
+  const filename = parts[parts.length - 1] || "";
+  const stem = filename.replace(/\.[^.]+$/, "");
+
+  if (stem && (folder === "shots" || folder === "images")) {
+    return mediaSrc(`${folder}/thumbs/${stem}.jpg`, item.modified);
+  }
+
+  return galleryThumbApiSrc(item);
+}
+
+const DEFAULT_VIDEO_POSTER = "images/video-thumb-default.jpg";
+
+function galleryVideoPosterSrc(item) {
+  if (item.poster) {
+    return mediaSrc(item.poster, item.modified);
+  }
+
+  return DEFAULT_VIDEO_POSTER;
+}
+
+function galleryVideoSourceSrc(item) {
+  const base = mediaSrc(item.src, item.modified);
+  return base.includes("#") ? base : `${base}#t=0.05`;
 }
 
 function escapeHtml(text) {
@@ -644,24 +695,40 @@ function renderVideos(videoList) {
 function renderGalleryThumb(item) {
   const src = escapeHtml(item.src);
   const title = escapeHtml(item.name);
+  const modified = item.modified || 0;
 
   if (item.type === "video") {
+    const videoSrc = galleryVideoSourceSrc(item);
+    const posterSrc = galleryVideoPosterSrc(item);
+
     return `
       <button
         type="button"
-        class="gallery-thumb"
+        class="gallery-thumb gallery-thumb--video"
         data-type="video"
         data-src="${src}"
         data-title="${title}"
+        data-modified="${modified}"
         aria-label="${title} 영상 보기"
       >
-        <video muted preload="metadata" playsinline>
-          <source src="${mediaSrc(item.src)}" type="${videoMimeType(item.src)}" />
+        <span class="gallery-thumb-video-fallback" aria-hidden="true"></span>
+        <video
+          class="gallery-thumb-video-preview"
+          preload="metadata"
+          muted
+          playsinline
+          poster="${safeAttr(posterSrc)}"
+          aria-hidden="true"
+        >
+          <source src="${safeAttr(videoSrc)}" type="${videoMimeType(item.src)}" />
         </video>
         <span class="gallery-thumb-play" aria-hidden="true">▶</span>
       </button>
     `;
   }
+
+  const thumbSrc = galleryImageThumbSrc(item);
+  const fallbackSrc = galleryThumbApiSrc(item);
 
   return `
     <button
@@ -670,9 +737,18 @@ function renderGalleryThumb(item) {
       data-type="image"
       data-src="${src}"
       data-title="${title}"
+      data-modified="${modified}"
       aria-label="${title} 이미지 보기"
     >
-      <img src="${mediaSrc(item.src)}" alt="${title}" loading="lazy" />
+      <img
+        src="${safeAttr(thumbSrc)}"
+        data-fallback="${safeAttr(fallbackSrc)}"
+        alt="${title}"
+        loading="lazy"
+        decoding="async"
+        fetchpriority="low"
+        onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback;}"
+      />
     </button>
   `;
 }
@@ -742,7 +818,7 @@ let lightboxOpen = false;
 let lightboxSource = "gallery";
 let blockClicksUntil = 0;
 
-function openLightbox(type, src, title, source = "gallery") {
+function openLightbox(type, src, title, source = "gallery", modified) {
   const lightbox = document.getElementById("lightbox");
   const content = document.getElementById("lightbox-content");
   const caption = document.getElementById("lightbox-caption");
@@ -755,7 +831,8 @@ function openLightbox(type, src, title, source = "gallery") {
     location.hash = "gallery";
   }
 
-  const mediaUrl = mediaSrc(src);
+  const version = typeof modified === "number" && modified > 0 ? modified : undefined;
+  const mediaUrl = mediaSrc(src, version);
 
   if (type === "video") {
     content.innerHTML = `
@@ -853,11 +930,52 @@ function initProjectFeatureMedia() {
   });
 }
 
+function primeGalleryVideoPreview(video) {
+  const showFallback = () => {
+    video.style.display = "none";
+  };
+
+  const seekPreview = async () => {
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      return;
+    }
+
+    const targetTime = Math.min(0.5, Math.max(0.05, video.duration * 0.05));
+
+    try {
+      video.currentTime = targetTime;
+      await video.play();
+      video.pause();
+      video.currentTime = targetTime;
+    } catch (_error) {
+      video.currentTime = targetTime;
+    }
+  };
+
+  video.addEventListener("error", showFallback, { once: true });
+  video.addEventListener("loadedmetadata", () => {
+    seekPreview();
+  }, { once: true });
+}
+
+function initGalleryVideoPosters() {
+  document.querySelectorAll(".gallery-thumb--video .gallery-thumb-video-preview").forEach((video) => {
+    primeGalleryVideoPreview(video);
+  });
+}
+
 function initGalleryLightbox() {
   document.querySelectorAll(".gallery-thumb").forEach((thumb) => {
     thumb.addEventListener("click", (event) => {
       event.stopPropagation();
-      openLightbox(thumb.dataset.type, thumb.dataset.src, thumb.dataset.title);
+      const modified = Number(thumb.dataset.modified) || undefined;
+      openLightbox(
+        thumb.dataset.type,
+        thumb.dataset.src,
+        thumb.dataset.title,
+        "gallery",
+        modified
+      );
     });
   });
 }
@@ -910,6 +1028,14 @@ function initLightboxControls() {
     },
     true
   );
+}
+
+function resetContentElement(content) {
+  content.onclick = null;
+  content.onkeydown = null;
+  content.removeAttribute("role");
+  content.removeAttribute("tabindex");
+  content.removeAttribute("aria-label");
 }
 
 function renderAboutContent(data) {
@@ -1351,6 +1477,7 @@ async function renderDynamicContent(tab, data) {
     content.innerHTML = renderGallery(media);
     initLightboxControls();
     initGalleryLightbox();
+    initGalleryVideoPosters();
     return;
   }
 
@@ -1372,6 +1499,8 @@ async function renderDynamicContent(tab, data) {
 function renderContent(tab) {
   const data = contents[tab];
   const content = document.getElementById("content");
+
+  resetContentElement(content);
 
   if (!data) {
     renderContent("home");
@@ -1437,8 +1566,6 @@ function handleRouteChange() {
     return;
   }
 
-  mediaCache = null;
-
   if (tab !== "projects") {
     projectsCache = null;
   }
@@ -1461,6 +1588,7 @@ function initTabs() {
 
 const VISIT_SESSION_KEY = "1indevtv-visited-session";
 const VISIT_LOCAL_KEY = "1indevtv-visit-count";
+const THEME_KEY = "1indevtv-theme";
 
 function padTime(value) {
   return String(value).padStart(2, "0");
@@ -1473,12 +1601,45 @@ function updateClock() {
 
   if (!clock || !date) return;
 
-  clock.textContent = `${padTime(now.getHours())}:${padTime(now.getMinutes())}:${padTime(now.getSeconds())}`;
+  clock.textContent = now.toLocaleTimeString("ko-KR", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
   date.textContent = now.toLocaleDateString("ko-KR", {
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "long",
+  });
+}
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.documentElement.dataset.theme = isDark ? "dark" : "light";
+
+  const toggleBtn = document.getElementById("theme-toggle-btn");
+  if (toggleBtn) {
+    toggleBtn.textContent = isDark ? "라이트 모드" : "다크 모드";
+    toggleBtn.setAttribute("aria-pressed", String(isDark));
+    toggleBtn.setAttribute(
+      "aria-label",
+      isDark ? "사이트 라이트 모드로 전환" : "사이트 다크 모드로 전환"
+    );
+  }
+}
+
+function initThemeToggle() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  const theme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+  applyTheme(theme);
+
+  document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
+    const nextTheme =
+      document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, nextTheme);
+    applyTheme(nextTheme);
   });
 }
 
@@ -1619,10 +1780,12 @@ async function initVisitorCounter() {
 }
 
 function initWidgets() {
+  initThemeToggle();
   updateClock();
   renderCalendar();
   setInterval(updateClock, 1000);
   initVisitorCounter();
+  fetchMedia().catch(() => {});
 }
 
 if (!location.hash) {

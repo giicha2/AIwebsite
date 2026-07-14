@@ -7,7 +7,67 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>1인개발TV</title>
+    <script>
+      (function () {
+        if (localStorage.getItem("1indevtv-theme") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
     <style>
+      :root {
+        --color-bg: #f8fafc;
+        --color-surface: #ffffff;
+        --color-text: #1e293b;
+        --color-heading: #0f172a;
+        --color-muted: #475569;
+        --color-subtle: #64748b;
+        --color-faint: #94a3b8;
+        --color-border: #e2e8f0;
+        --color-border-strong: #cbd5e1;
+        --color-accent: #38bdf8;
+        --color-accent-text: #0369a1;
+        --color-badge-bg: #e0f2fe;
+        --color-widgets-bg: #ffffff;
+        --color-calendar-bg: #f8fafc;
+        --color-input-bg: #ffffff;
+        --color-form-bg: #f8fafc;
+        --color-footer-border: #e2e8f0;
+        --color-empty-bg: #f8fafc;
+        --color-notice-bg: #fff7ed;
+        --color-notice-border: #fdba74;
+        --color-notice-text: #9a3412;
+        --shadow-card: 0 4px 24px rgba(15, 23, 42, 0.06);
+        --shadow-card-hover: 0 8px 28px rgba(15, 23, 42, 0.1);
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --color-bg: #0b1220;
+        --color-surface: #1e293b;
+        --color-text: #e2e8f0;
+        --color-heading: #f1f5f9;
+        --color-muted: #cbd5e1;
+        --color-subtle: #94a3b8;
+        --color-faint: #64748b;
+        --color-border: #334155;
+        --color-border-strong: #475569;
+        --color-accent: #38bdf8;
+        --color-accent-text: #7dd3fc;
+        --color-badge-bg: #0c4a6e;
+        --color-widgets-bg: #0f172a;
+        --color-calendar-bg: #1e293b;
+        --color-input-bg: #0f172a;
+        --color-form-bg: #1e293b;
+        --color-footer-border: #334155;
+        --color-empty-bg: #1e293b;
+        --color-notice-bg: #431407;
+        --color-notice-border: #9a3412;
+        --color-notice-text: #fdba74;
+        --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.28);
+        --shadow-card-hover: 0 8px 28px rgba(0, 0, 0, 0.35);
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -17,9 +77,10 @@
         margin: 0;
         min-height: 100vh;
         overflow-x: clip;
-        background: #f8fafc;
-        color: #1e293b;
+        background: var(--color-bg);
+        color: var(--color-text);
         line-height: 1.6;
+        transition: background 0.2s ease, color 0.2s ease;
       }
 
       .container {
@@ -123,8 +184,8 @@
 
       .home-widgets {
         display: none;
-        background: #fff;
-        border-top: 1px solid #e2e8f0;
+        background: var(--color-widgets-bg);
+        border-top: 1px solid var(--color-border);
       }
 
       .home-widgets.is-visible {
@@ -172,13 +233,41 @@
         border-left: 1px solid #334155;
         text-align: right;
         flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+      }
+
+      .theme-toggle-btn {
+        margin-top: 10px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        background: rgba(255, 255, 255, 0.08);
+        color: #e2e8f0;
+        font: inherit;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+
+      .theme-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: #64748b;
+      }
+
+      .theme-toggle-btn[aria-pressed="true"] {
+        background: rgba(56, 189, 248, 0.18);
+        border-color: #38bdf8;
+        color: #bae6fd;
       }
 
       .calendar-widget {
         padding: 12px 14px;
         border-radius: 12px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--color-calendar-bg);
+        border: 1px solid var(--color-border);
       }
 
       .calendar-header {
@@ -188,7 +277,7 @@
         margin-bottom: 10px;
         font-size: 0.95rem;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .calendar-grid {
@@ -200,7 +289,7 @@
       }
 
       .calendar-weekday {
-        color: #94a3b8;
+        color: var(--color-faint);
         font-weight: 600;
         padding-bottom: 4px;
       }
@@ -208,7 +297,7 @@
       .calendar-day {
         padding: 6px 0;
         border-radius: 6px;
-        color: #475569;
+        color: var(--color-muted);
       }
 
       .calendar-day.today {
@@ -246,22 +335,23 @@
       }
 
       .hero {
-        background: #fff;
+        background: var(--color-surface);
         border-radius: 16px;
         padding: 40px;
-        box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
-        border: 1px solid #e2e8f0;
+        box-shadow: var(--shadow-card);
+        border: 1px solid var(--color-border);
+        transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
       }
 
       .hero h2 {
         margin: 0 0 16px;
         font-size: 1.75rem;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .hero p {
         margin: 0 0 12px;
-        color: #475569;
+        color: var(--color-muted);
         font-size: 1.05rem;
       }
 
@@ -273,8 +363,8 @@
         display: inline-block;
         margin-bottom: 20px;
         padding: 6px 12px;
-        background: #e0f2fe;
-        color: #0369a1;
+        background: var(--color-badge-bg);
+        color: var(--color-accent-text);
         border-radius: 999px;
         font-size: 0.85rem;
         font-weight: 600;
@@ -287,26 +377,26 @@
 
       .hero--home-link:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
+        box-shadow: var(--shadow-card-hover);
       }
 
       .home-link-hint {
         display: block;
         margin-top: 16px;
         font-size: 0.85rem;
-        color: #94a3b8;
+        color: var(--color-faint);
       }
 
       .about-youtube {
         margin-top: 28px;
         padding-top: 24px;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--color-border);
       }
 
       .about-youtube h3 {
         margin: 0 0 12px;
         font-size: 1.2rem;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .about-links {
@@ -348,8 +438,8 @@
         padding: 20px 24px 12px;
         font-size: 1rem;
         font-weight: 700;
-        color: #0f172a;
-        background: #fff;
+        color: var(--color-heading);
+        background: var(--color-surface);
       }
 
       .gallery-thumb-grid {
@@ -373,16 +463,33 @@
       }
 
       .gallery-thumb img,
-      .gallery-thumb video {
+      .gallery-thumb-video-preview,
+      .gallery-thumb-video-fallback {
         width: 100%;
         height: 100%;
         object-fit: cover;
         pointer-events: none;
+        display: block;
+      }
+
+      .gallery-thumb-video-fallback {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+      }
+
+      .gallery-thumb--video .gallery-thumb-video-preview {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: #0f172a;
       }
 
       .gallery-thumb-play {
         position: absolute;
         inset: 0;
+        z-index: 2;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -393,7 +500,7 @@
       }
 
       .gallery-thumb:hover img,
-      .gallery-thumb:hover video {
+      .gallery-thumb:hover .gallery-thumb-video-preview {
         transform: scale(1.04);
         transition: transform 0.25s ease;
       }
@@ -552,8 +659,8 @@
       .video-card {
         border-radius: 12px;
         overflow: hidden;
-        border: 1px solid #e2e8f0;
-        background: #fff;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
       }
 
       .video-wrapper {
@@ -576,14 +683,14 @@
         margin: 0;
         padding: 14px 16px 6px;
         font-size: 1rem;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .video-card p {
         margin: 0;
         padding: 0 16px 14px;
         font-size: 0.875rem;
-        color: #64748b;
+        color: var(--color-subtle);
       }
 
       .media-loading,
@@ -591,8 +698,8 @@
         margin-top: 20px;
         padding: 16px;
         border-radius: 10px;
-        background: #f8fafc;
-        color: #64748b;
+        background: var(--color-form-bg);
+        color: var(--color-subtle);
         text-align: center;
       }
 
@@ -619,9 +726,9 @@
       .blog-logout-btn {
         padding: 10px 16px;
         border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        background: #fff;
-        color: #475569;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-surface);
+        color: var(--color-muted);
         font: inherit;
         font-weight: 600;
         cursor: pointer;
@@ -629,8 +736,8 @@
 
       .blog-login-btn:hover,
       .blog-logout-btn:hover {
-        border-color: #94a3b8;
-        background: #f8fafc;
+        border-color: var(--color-faint);
+        background: var(--color-form-bg);
       }
 
       .blog-login-panel {
@@ -647,24 +754,24 @@
         max-width: 360px;
         padding: 20px;
         border-radius: 12px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--color-form-bg);
+        border: 1px solid var(--color-border);
       }
 
       .blog-login-form label {
         font-size: 0.9rem;
         font-weight: 600;
-        color: #334155;
+        color: var(--color-muted);
       }
 
       .blog-login-form input {
         width: 100%;
         padding: 12px 14px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--color-border-strong);
         border-radius: 8px;
         font: inherit;
-        color: #0f172a;
-        background: #fff;
+        color: var(--color-heading);
+        background: var(--color-input-bg);
       }
 
       .blog-login-submit,
@@ -690,11 +797,11 @@
       .blog-count {
         margin: 0;
         font-size: 0.95rem;
-        color: #64748b;
+        color: var(--color-subtle);
       }
 
       .blog-count strong {
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .blog-write-btn {
@@ -734,8 +841,8 @@
         gap: 12px;
         padding: 20px;
         border-radius: 12px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--color-form-bg);
+        border: 1px solid var(--color-border);
       }
 
       .blog-form-actions {
@@ -747,18 +854,18 @@
       .blog-form label {
         font-size: 0.9rem;
         font-weight: 600;
-        color: #334155;
+        color: var(--color-muted);
       }
 
       .blog-form input,
       .blog-form textarea {
         width: 100%;
         padding: 12px 14px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--color-border-strong);
         border-radius: 8px;
         font: inherit;
-        color: #0f172a;
-        background: #fff;
+        color: var(--color-heading);
+        background: var(--color-input-bg);
       }
 
       .blog-form input:focus,
@@ -809,9 +916,9 @@
         margin: 0 0 16px;
         padding: 12px 14px;
         border-radius: 10px;
-        background: #fff7ed;
-        border: 1px solid #fdba74;
-        color: #9a3412;
+        background: var(--color-notice-bg);
+        border: 1px solid var(--color-notice-border);
+        color: var(--color-notice-text);
         font-size: 0.9rem;
         line-height: 1.5;
       }
@@ -845,9 +952,9 @@
         margin: 0;
         padding: 28px 20px;
         border-radius: 12px;
-        border: 1px dashed #cbd5e1;
-        background: #f8fafc;
-        color: #64748b;
+        border: 1px dashed var(--color-border-strong);
+        background: var(--color-empty-bg);
+        color: var(--color-subtle);
         text-align: center;
       }
 
@@ -863,8 +970,8 @@
       .blog-post {
         padding: 18px 20px;
         border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
       }
 
       .blog-post-head {
@@ -885,9 +992,9 @@
       .blog-delete-btn {
         padding: 6px 12px;
         border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        background: #fff;
-        color: #475569;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-surface);
+        color: var(--color-muted);
         font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
@@ -937,20 +1044,20 @@
       .blog-post h3 {
         margin: 0 0 4px;
         font-size: 1.1rem;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .blog-post time {
         display: block;
         font-size: 0.85rem;
-        color: #94a3b8;
+        color: var(--color-faint);
       }
 
       .blog-post-body {
         margin: 0;
         padding-left: 46px;
         white-space: pre-wrap;
-        color: #475569;
+        color: var(--color-muted);
         font-size: 1rem;
         line-height: 1.65;
       }
@@ -1210,15 +1317,15 @@
         padding: 8px 14px;
         border: 0;
         border-radius: 8px;
-        background: #f1f5f9;
-        color: #334155;
+        background: var(--color-form-bg);
+        color: var(--color-muted);
         font: inherit;
         font-weight: 600;
         cursor: pointer;
       }
 
       .project-back:hover {
-        background: #e2e8f0;
+        background: var(--color-empty-bg);
       }
 
       .project-detail-hero {
@@ -1250,13 +1357,13 @@
       .project-detail-body h2 {
         margin: 0 0 16px;
         font-size: 1.4rem;
-        color: #0f172a;
+        color: var(--color-heading);
       }
 
       .project-detail-text {
         margin: 0 0 24px;
         white-space: pre-wrap;
-        color: #475569;
+        color: var(--color-muted);
         font-size: 1.05rem;
         line-height: 1.8;
       }
@@ -1378,9 +1485,9 @@
       footer {
         padding: 24px 0;
         text-align: center;
-        color: #94a3b8;
+        color: var(--color-faint);
         font-size: 0.875rem;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--color-footer-border);
       }
 
       @media (max-width: 640px) {
@@ -1409,6 +1516,7 @@
           border-left: 0;
           border-top: 1px solid #334155;
           text-align: left;
+          align-items: flex-start;
         }
 
         .hero {
@@ -1502,13 +1610,22 @@
       <div class="container home-widgets-inner">
         <div class="info-widget">
           <div class="clock-area">
-            <div class="live-clock" id="live-clock">00:00:00</div>
+            <div class="live-clock" id="live-clock">오전 12:00:00</div>
             <div class="live-date" id="live-date">날짜 불러오는 중...</div>
           </div>
           <div class="visitor-area">
             <span class="visitor-label">총 방문자</span>
             <span class="visitor-count" id="visitor-count">-</span>
             <span class="visitor-today" id="visitor-today">오늘 -명</span>
+            <button
+              type="button"
+              class="theme-toggle-btn"
+              id="theme-toggle-btn"
+              aria-pressed="false"
+              aria-label="사이트 다크 모드 전환"
+            >
+              다크 모드
+            </button>
           </div>
         </div>
         <div class="calendar-widget" id="calendar-widget"></div>

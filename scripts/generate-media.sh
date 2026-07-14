@@ -1,3 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-python3 "$(dirname "$0")/generate-media.py"
+dir="$(dirname "$0")"
+python3 -m pip install -r "$dir/requirements.txt" -q
+python3 "$dir/generate-media.py"
