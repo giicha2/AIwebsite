@@ -63,6 +63,164 @@ function normalizeStockSymbol($symbol)
     return $symbol;
 }
 
+function stockAliasMap()
+{
+    return [
+        "테슬라" => "TSLA",
+        "TESLA" => "TSLA",
+        "애플" => "AAPL",
+        "APPLE" => "AAPL",
+        "엔비디아" => "NVDA",
+        "NVIDIA" => "NVDA",
+        "마이크로소프트" => "MSFT",
+        "MICROSOFT" => "MSFT",
+        "아마존" => "AMZN",
+        "AMAZON" => "AMZN",
+        "구글" => "GOOGL",
+        "알파벳" => "GOOGL",
+        "GOOGLE" => "GOOGL",
+        "ALPHABET" => "GOOGL",
+        "메타" => "META",
+        "페이스북" => "META",
+        "META" => "META",
+        "넷플릭스" => "NFLX",
+        "NETFLIX" => "NFLX",
+        "삼성전자" => "005930.KS",
+        "SAMSUNG" => "005930.KS",
+        "SK하이닉스" => "000660.KS",
+        "하이닉스" => "000660.KS",
+        "네이버" => "035420.KS",
+        "NAVER" => "035420.KS",
+        "카카오" => "035720.KS",
+        "KAKAO" => "035720.KS",
+        "현대차" => "005380.KS",
+        "현대자동차" => "005380.KS",
+        "LG에너지솔루션" => "373220.KS",
+        "기아" => "000270.KS",
+    ];
+}
+
+function looksLikeTickerSymbol($symbol)
+{
+    $symbol = normalizeStockSymbol($symbol);
+
+    if ($symbol === "") {
+        return false;
+    }
+
+    if (preg_match('/^\d{6}\.(KS|KQ)$/', $symbol)) {
+        return true;
+    }
+
+    // Yahoo tickers: AAPL, BRK-B, ^GSPC, 005930.KS already handled
+    return (bool) preg_match('/^[A-Z0-9][A-Z0-9.\-^]{0,14}$/', $symbol);
+}
+
+function yahooSearchSymbol($query)
+{
+    $query = trim((string) $query);
+
+    if ($query === "") {
+        return null;
+    }
+
+    $url = "https://query1.finance.yahoo.com/v1/finance/search?"
+        . http_build_query([
+            "q" => $query,
+            "quotesCount" => 8,
+            "newsCount" => 0,
+            "listsCount" => 0,
+        ]);
+
+    $data = httpGetJson($url);
+
+    if (!$data || empty($data["quotes"]) || !is_array($data["quotes"])) {
+        return null;
+    }
+
+    $preferred = null;
+
+    foreach ($data["quotes"] as $quote) {
+        if (!is_array($quote)) {
+            continue;
+        }
+
+        $type = strtoupper((string) ($quote["quoteType"] ?? ""));
+        $symbol = trim((string) ($quote["symbol"] ?? ""));
+
+        if ($symbol === "" || in_array($type, ["OPTION", "FUTURE", "CURRENCY", "CRYPTOCURRENCY"], true)) {
+            continue;
+        }
+
+        if ($type === "EQUITY" || $type === "ETF") {
+            return normalizeStockSymbol($symbol);
+        }
+
+        if ($preferred === null) {
+            $preferred = normalizeStockSymbol($symbol);
+        }
+    }
+
+    return $preferred;
+}
+
+/**
+ * Resolve a user-entered name or ticker into a Yahoo symbol.
+ * Accepts "테슬라", "TSLA", "005930", "삼성전자" etc.
+ */
+function resolveStockSymbolFromQuery($query)
+{
+    $query = trim((string) $query);
+
+    if ($query === "") {
+        return "";
+    }
+
+    $aliases = stockAliasMap();
+    $aliasKey = function_exists("mb_strtoupper")
+        ? mb_strtoupper($query, "UTF-8")
+        : strtoupper($query);
+
+    // Direct alias (Korean keys as-is + uppercased latin)
+    if (isset($aliases[$query])) {
+        return normalizeStockSymbol($aliases[$query]);
+    }
+
+    foreach ($aliases as $key => $symbol) {
+        $keyUpper = function_exists("mb_strtoupper")
+            ? mb_strtoupper($key, "UTF-8")
+            : strtoupper($key);
+        if ($keyUpper === $aliasKey) {
+            return normalizeStockSymbol($symbol);
+        }
+    }
+
+    $normalized = normalizeStockSymbol($query);
+
+    if (looksLikeTickerSymbol($normalized)) {
+        // Prefer verifying known aliases already applied by normalize
+        $probe = fetchStockQuote($normalized);
+        if ($probe && !empty($probe["ok"])) {
+            return $normalized;
+        }
+        // Still return ticker-like input; caller may accept cost fallback
+        if (preg_match('/^\d{6}\.(KS|KQ)$/', $normalized) || preg_match('/^[A-Z]{1,5}(-[A-Z])?$/', $normalized)) {
+            return $normalized;
+        }
+    }
+
+    $searched = yahooSearchSymbol($query);
+    if ($searched) {
+        return $searched;
+    }
+
+    if ($normalized !== "" && looksLikeTickerSymbol($normalized)) {
+        return $normalized;
+    }
+
+    return "";
+}
+
 function fetchYahooChart($symbol, $range = "5d", $interval = "1d")
 {
     $symbol = rawurlencode($symbol);

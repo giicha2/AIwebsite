@@ -1500,7 +1500,7 @@
         gap: 20px;
         align-items: flex-start;
         flex-wrap: wrap;
-        margin-bottom: 24px;
+        margin-bottom: 16px;
       }
 
       .invest-login-card {
@@ -1508,12 +1508,25 @@
         margin-top: 20px;
       }
 
+      .invest-chart-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .invest-chart-top h3 {
+        margin: 0;
+      }
+
       .invest-total-btn {
-        min-width: 220px;
-        padding: 16px 18px;
-        border: 1px solid var(--color-border);
-        border-radius: 14px;
-        background: var(--color-form-bg);
+        min-width: 200px;
+        padding: 12px 14px;
+        border: 1px solid var(--color-border-strong);
+        border-radius: 12px;
+        background: var(--color-surface);
         color: var(--color-heading);
         text-align: left;
         cursor: pointer;
@@ -1535,8 +1548,8 @@
 
       .invest-total-btn strong {
         display: block;
-        margin: 6px 0;
-        font-size: 1.45rem;
+        margin: 4px 0;
+        font-size: 1.25rem;
       }
 
       .invest-total-change {
@@ -1555,11 +1568,11 @@
       }
 
       .invest-history-panel {
-        margin-bottom: 20px;
-        padding: 12px 16px 10px;
-        border-radius: 14px;
+        margin: 0 0 16px;
+        padding: 10px 12px 8px;
+        border-radius: 12px;
         border: 1px solid var(--color-border);
-        background: var(--color-form-bg);
+        background: var(--color-surface);
       }
 
       .invest-history-panel[hidden] {
@@ -1626,6 +1639,17 @@
         margin: 0 0 14px;
         font-size: 1.05rem;
         color: var(--color-heading);
+      }
+
+      .invest-cash-check select {
+        width: 100%;
+        margin-top: 6px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-surface);
+        color: var(--color-heading);
+        font: inherit;
       }
 
       .invest-note,

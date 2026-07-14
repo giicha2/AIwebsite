@@ -50,9 +50,13 @@
   }
 
   async function mutatePortfolio(method, body) {
-    const response = await fetch(`api/portfolio.php${window.cacheBust?.() || ""}`, {
+    const headers = {
+      "Content-Type": "application/json",
+      ...(window.blogAuthHeaders?.() || {}),
+    };
+    const response = await fetch(`api/portfolio.php${window.cacheBust?.() || `?v=${Date.now()}`}`, {
       method,
-      headers: window.blogAuthHeaders?.() || { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     });
     const data = await response.json().catch(() => null);
@@ -275,16 +279,21 @@
       status.textContent = "저장 중...";
       status.className = "blog-status";
 
+      const fd = new FormData(form);
+      const name = String(fd.get("holdingName") || "").trim();
+      const shares = Number(fd.get("shares") || 0);
+      const costKrw = Number(fd.get("costKrw") || 0);
+      const asCash = fd.get("asCash") === "1" || /현금|기타/i.test(name);
+
       const payload = {
-        name: form.name.value.trim(),
-        symbol: form.symbol.value.trim(),
-        shares: Number(form.shares.value || 0),
-        costKrw: Number(form.costKrw.value || 0),
+        name,
+        shares,
+        costKrw,
+        asCash: asCash ? 1 : 0,
       };
 
-      if (payload.symbol.toUpperCase() === "CASH" || payload.name.includes("현금")) {
-        payload.symbol = "CASH";
-        payload.priceKrw = payload.costKrw || payload.shares;
+      if (asCash) {
+        payload.priceKrw = costKrw || shares;
       }
 
       try {
@@ -293,7 +302,6 @@
       } catch (error) {
         status.className = "blog-status error";
         status.textContent = error.message || "추가 실패";
-      } finally {
         submit.disabled = false;
       }
     });
@@ -355,28 +363,31 @@
           <h2>투자 현황</h2>
           <p>전일 종가 기준으로 평가합니다. 총액을 누르면 증감 그래프를 접거나 펼 수 있습니다.</p>
         </div>
-        <button type="button" class="invest-total-btn ${changeClass}" id="invest-total-btn" aria-expanded="true">
-          <span class="invest-total-label">투자 총액</span>
-          <strong>${formatKrw(data.totalKrw)}</strong>
-          <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
-          <span class="invest-total-hint">그래프 숨기기</span>
-        </button>
-      </div>
-
-      <div class="invest-history-panel" id="invest-history-panel">
-        <div class="invest-range-tabs">
-          <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
-          <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
-          <button type="button" class="invest-range-btn" data-invest-range="monthly">월간</button>
-        </div>
-        <div class="invest-line-wrap">
-          <canvas id="invest-line" aria-label="투자 총액 증감 그래프"></canvas>
-        </div>
       </div>
 
       <div class="invest-layout invest-layout--stack">
         <section class="invest-chart-card">
-          <h3>자산 비율</h3>
+          <div class="invest-chart-top">
+            <h3>자산 비율</h3>
+            <button type="button" class="invest-total-btn ${changeClass}" id="invest-total-btn" aria-expanded="true">
+              <span class="invest-total-label">투자 총액</span>
+              <strong>${formatKrw(data.totalKrw)}</strong>
+              <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
+              <span class="invest-total-hint">그래프 숨기기</span>
+            </button>
+          </div>
+
+          <div class="invest-history-panel" id="invest-history-panel">
+            <div class="invest-range-tabs">
+              <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
+              <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
+              <button type="button" class="invest-range-btn" data-invest-range="monthly">월간</button>
+            </div>
+            <div class="invest-line-wrap">
+              <canvas id="invest-line" aria-label="투자 총액 증감 그래프"></canvas>
+            </div>
+          </div>
+
           <div class="invest-pie-wrap">
             <canvas id="invest-pie" aria-label="자산 비율 원형 그래프"></canvas>
           </div>
@@ -392,11 +403,14 @@
             <div class="invest-form-grid">
               <label>
                 종목명
-                <input name="name" type="text" maxlength="80" placeholder="테슬라" />
+                <input name="holdingName" type="text" maxlength="80" placeholder="테슬라, 삼성전자, 애플…" required />
               </label>
-              <label>
-                심볼
-                <input name="symbol" type="text" maxlength="32" placeholder="TSLA 또는 005930" required />
+              <label class="invest-cash-check">
+                <span>유형</span>
+                <select name="asCash">
+                  <option value="0">주식/ETF (심볼 자동)</option>
+                  <option value="1">현금/기타</option>
+                </select>
               </label>
               <label>
                 수량(주)
@@ -404,10 +418,10 @@
               </label>
               <label>
                 매수/설정 금액(원)
-                <input name="costKrw" type="number" min="0" step="1" placeholder="수량 없을 때 금액으로 환산" />
+                <input name="costKrw" type="number" min="0" step="1" placeholder="현금이거나 수량 대신 금액" />
               </label>
             </div>
-            <p class="invest-help">현금/기타는 심볼에 <code>CASH</code> 입력. USD 종목은 환율 반영(대략 Yahoo KRW=X).</p>
+            <p class="invest-help">종목명만 넣으면 심볼을 자동으로 찾습니다. 현금/기타는 유형을 바꾸거나 이름에 「현금」을 넣으세요.</p>
             <button type="submit" class="invest-submit">추가</button>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>
