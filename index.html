@@ -1508,88 +1508,66 @@
         margin-top: 20px;
       }
 
-      .invest-chart-top {
+      .invest-total-panel {
+        margin: 0 0 20px;
+        padding: 14px 16px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+      }
+
+      .invest-total-head {
         display: flex;
-        align-items: flex-start;
+        align-items: flex-end;
         justify-content: space-between;
         gap: 16px;
         flex-wrap: wrap;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
       }
 
-      .invest-chart-top h3 {
-        margin: 0;
+      .invest-total-summary {
+        min-width: 160px;
       }
 
-      .invest-total-btn {
-        min-width: 200px;
-        padding: 12px 14px;
-        border: 1px solid var(--color-border-strong);
-        border-radius: 12px;
-        background: var(--color-surface);
-        color: var(--color-heading);
-        text-align: left;
-        cursor: pointer;
-        font: inherit;
-        transition: border-color 0.15s ease, transform 0.15s ease;
-      }
-
-      .invest-total-btn:hover {
-        border-color: #38bdf8;
-        transform: translateY(-1px);
-      }
-
-      .invest-total-label,
-      .invest-total-hint {
+      .invest-total-label {
         display: block;
         color: var(--color-faint);
         font-size: 0.8rem;
       }
 
-      .invest-total-btn strong {
+      .invest-total-summary strong {
         display: block;
         margin: 4px 0;
-        font-size: 1.25rem;
+        font-size: 1.35rem;
+        color: var(--color-heading);
       }
 
       .invest-total-change {
         display: block;
-        margin-bottom: 6px;
         font-size: 0.92rem;
         font-weight: 600;
+        color: var(--color-muted);
       }
 
-      .invest-total-btn.is-up .invest-total-change {
+      .invest-total-panel.is-up .invest-total-change {
         color: #ef4444;
       }
 
-      .invest-total-btn.is-down .invest-total-change {
+      .invest-total-panel.is-down .invest-total-change {
         color: #3b82f6;
-      }
-
-      .invest-history-panel {
-        margin: 0 0 16px;
-        padding: 10px 12px 8px;
-        border-radius: 12px;
-        border: 1px solid var(--color-border);
-        background: var(--color-surface);
-      }
-
-      .invest-history-panel[hidden] {
-        display: none;
       }
 
       .invest-range-tabs {
         display: flex;
         gap: 8px;
-        margin-bottom: 8px;
+        margin-bottom: 0;
       }
 
       .invest-range-btn {
         padding: 6px 12px;
         border-radius: 8px;
         border: 1px solid var(--color-border-strong);
-        background: var(--color-surface);
+        background: var(--color-form-bg);
         color: var(--color-muted);
         font: inherit;
         font-weight: 600;
@@ -1605,6 +1583,21 @@
       .invest-line-wrap {
         position: relative;
         height: 150px;
+      }
+
+      .invest-pie-title {
+        margin: 0 0 12px;
+      }
+
+      .invest-quote-hint {
+        margin: 8px 0 0;
+        min-height: 1.2em;
+        font-size: 0.82rem;
+        color: var(--color-subtle);
+      }
+
+      .invest-quote-hint.is-error {
+        color: #ef4444;
       }
 
       .invest-pie-wrap {

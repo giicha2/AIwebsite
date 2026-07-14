@@ -265,12 +265,154 @@
     });
   }
 
+  async function fetchQuoteForName(name) {
+    const query = String(name || "").trim();
+    if (!query) return null;
+
+    const bust = window.cacheBust?.() || `?v=${Date.now()}`;
+    const sep = bust.includes("?") ? "&" : "?";
+    const url = `api/portfolio.php${bust}${sep}mode=quote&q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      headers: window.blogAuthHeaders?.() || {},
+    });
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.error || "시세를 불러오지 못했습니다.");
+    }
+
+    return data;
+  }
+
+  function bindSharesCostSync(form, status) {
+    const nameInput = form.querySelector("[name='holdingName']");
+    const sharesInput = form.querySelector("[name='shares']");
+    const costInput = form.querySelector("[name='costKrw']");
+    const asCashSelect = form.querySelector("[name='asCash']");
+    const quoteHint = form.querySelector("#invest-quote-hint");
+
+    let priceKrw = 0;
+    let syncLock = false;
+    let quoteTimer = null;
+    let lastQuotedName = "";
+
+    const setHint = (text, isError = false) => {
+      if (!quoteHint) return;
+      quoteHint.textContent = text || "";
+      quoteHint.className = isError ? "invest-quote-hint is-error" : "invest-quote-hint";
+    };
+
+    const writeField = (input, value) => {
+      syncLock = true;
+      if (Number.isFinite(value) && value > 0) {
+        const rounded = input === costInput ? Math.round(value) : Math.round(value * 10000) / 10000;
+        input.value = String(rounded);
+      } else {
+        input.value = "";
+      }
+      syncLock = false;
+    };
+
+    const recalculateFromShares = () => {
+      if (syncLock || !(priceKrw > 0) || asCashSelect?.value === "1") return;
+      const shares = Number(sharesInput.value || 0);
+      if (shares > 0) writeField(costInput, shares * priceKrw);
+    };
+
+    const recalculateFromCost = () => {
+      if (syncLock || !(priceKrw > 0) || asCashSelect?.value === "1") return;
+      const cost = Number(costInput.value || 0);
+      if (cost > 0) writeField(sharesInput, cost / priceKrw);
+    };
+
+    const refreshQuote = async () => {
+      const name = String(nameInput?.value || "").trim();
+      const asCash = asCashSelect?.value === "1" || /현금|기타/i.test(name);
+
+      if (asCash) {
+        priceKrw = 0;
+        lastQuotedName = name;
+        setHint("현금/기타: 금액만 입력하면 됩니다.");
+        return;
+      }
+
+      if (!name) {
+        priceKrw = 0;
+        lastQuotedName = "";
+        setHint("");
+        return;
+      }
+
+      if (name === lastQuotedName && priceKrw > 0) {
+        return;
+      }
+
+      setHint("시세 조회 중...");
+      try {
+        const quote = await fetchQuoteForName(name);
+        lastQuotedName = name;
+        priceKrw = Number(quote.priceKrw) || 0;
+
+        if (quote.cash) {
+          priceKrw = 0;
+          setHint("현금/기타로 인식되었습니다.");
+          return;
+        }
+
+        const unit = Math.round(priceKrw).toLocaleString("ko-KR");
+        setHint(
+          `시세 ${unit}원/주 (${quote.symbol}${quote.currency && quote.currency !== "KRW" ? `, ${quote.currency}` : ""})`
+        );
+
+        const shares = Number(sharesInput.value || 0);
+        const cost = Number(costInput.value || 0);
+
+        if (shares > 0 && !(cost > 0)) {
+          recalculateFromShares();
+        } else if (cost > 0 && !(shares > 0)) {
+          recalculateFromCost();
+        } else if (shares > 0) {
+          recalculateFromShares();
+        }
+      } catch (error) {
+        priceKrw = 0;
+        setHint(error.message || "시세 조회 실패", true);
+      }
+    };
+
+    const scheduleQuote = () => {
+      clearTimeout(quoteTimer);
+      quoteTimer = setTimeout(refreshQuote, 450);
+    };
+
+    nameInput?.addEventListener("input", scheduleQuote);
+    nameInput?.addEventListener("change", refreshQuote);
+    asCashSelect?.addEventListener("change", refreshQuote);
+
+    sharesInput?.addEventListener("input", () => {
+      if (syncLock) return;
+      if (!(priceKrw > 0)) scheduleQuote();
+      recalculateFromShares();
+    });
+
+    costInput?.addEventListener("input", () => {
+      if (syncLock) return;
+      if (!(priceKrw > 0)) scheduleQuote();
+      recalculateFromCost();
+    });
+
+    form._investGetPriceKrw = () => priceKrw;
+  }
+
   function bindInvestUi(state, data) {
     const form = document.getElementById("invest-add-form");
     const status = document.getElementById("invest-form-status");
-    const totalBtn = document.getElementById("invest-total-btn");
-    const chartPanel = document.getElementById("invest-history-panel");
+    const totalPanel = document.getElementById("invest-total-panel");
     const rangeButtons = document.querySelectorAll("[data-invest-range]");
+
+    if (form) {
+      bindSharesCostSync(form, status);
+    }
 
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -318,24 +460,7 @@
       });
     });
 
-    totalBtn?.addEventListener("click", async () => {
-      if (!chartPanel) return;
-      const isOpen = !chartPanel.hasAttribute("hidden");
-      if (isOpen) {
-        chartPanel.setAttribute("hidden", "");
-        totalBtn.setAttribute("aria-expanded", "false");
-        const hint = totalBtn.querySelector(".invest-total-hint");
-        if (hint) hint.textContent = "그래프 보기";
-      } else {
-        chartPanel.removeAttribute("hidden");
-        totalBtn.setAttribute("aria-expanded", "true");
-        const hint = totalBtn.querySelector(".invest-total-hint");
-        if (hint) hint.textContent = "그래프 숨기기";
-        await drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
-      }
-    });
-
-    if (chartPanel && !chartPanel.hasAttribute("hidden")) {
+    if (totalPanel) {
       drawHistory(state, data.history?.[state.rangeMode] || [], state.rangeMode);
     }
 
@@ -361,33 +486,31 @@
         <div>
           <span class="badge">내 자산</span>
           <h2>투자 현황</h2>
-          <p>전일 종가 기준으로 평가합니다. 총액을 누르면 증감 그래프를 접거나 펼 수 있습니다.</p>
+          <p>전일 종가 기준으로 평가합니다. 수량·금액은 시세로 서로 자동 환산됩니다.</p>
         </div>
       </div>
 
       <div class="invest-layout invest-layout--stack">
         <section class="invest-chart-card">
-          <div class="invest-chart-top">
-            <h3>자산 비율</h3>
-            <button type="button" class="invest-total-btn ${changeClass}" id="invest-total-btn" aria-expanded="true">
-              <span class="invest-total-label">투자 총액</span>
-              <strong>${formatKrw(data.totalKrw)}</strong>
-              <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
-              <span class="invest-total-hint">그래프 숨기기</span>
-            </button>
-          </div>
-
-          <div class="invest-history-panel" id="invest-history-panel">
-            <div class="invest-range-tabs">
-              <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
-              <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
-              <button type="button" class="invest-range-btn" data-invest-range="monthly">월간</button>
+          <div class="invest-total-panel ${changeClass}" id="invest-total-panel">
+            <div class="invest-total-head">
+              <div class="invest-total-summary">
+                <span class="invest-total-label">투자 총액</span>
+                <strong>${formatKrw(data.totalKrw)}</strong>
+                <span class="invest-total-change">${formatSignedKrw(data.changeKrw)} (${formatPct(data.changePct)})</span>
+              </div>
+              <div class="invest-range-tabs">
+                <button type="button" class="invest-range-btn is-active" data-invest-range="daily">일간</button>
+                <button type="button" class="invest-range-btn" data-invest-range="weekly">주간</button>
+                <button type="button" class="invest-range-btn" data-invest-range="monthly">월간</button>
+              </div>
             </div>
             <div class="invest-line-wrap">
               <canvas id="invest-line" aria-label="투자 총액 증감 그래프"></canvas>
             </div>
           </div>
 
+          <h3 class="invest-pie-title">자산 비율</h3>
           <div class="invest-pie-wrap">
             <canvas id="invest-pie" aria-label="자산 비율 원형 그래프"></canvas>
           </div>
@@ -417,11 +540,12 @@
                 <input name="shares" type="number" min="0" step="any" placeholder="10" />
               </label>
               <label>
-                매수/설정 금액(원)
-                <input name="costKrw" type="number" min="0" step="1" placeholder="현금이거나 수량 대신 금액" />
+                금액(원)
+                <input name="costKrw" type="number" min="0" step="1" placeholder="시세로 자동 환산" />
               </label>
             </div>
-            <p class="invest-help">종목명만 넣으면 심볼을 자동으로 찾습니다. 현금/기타는 유형을 바꾸거나 이름에 「현금」을 넣으세요.</p>
+            <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite"></p>
+            <p class="invest-help">종목명 입력 후 수량 또는 금액 중 하나만 넣어도 다른 쪽이 시세로 채워집니다.</p>
             <button type="submit" class="invest-submit">추가</button>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>

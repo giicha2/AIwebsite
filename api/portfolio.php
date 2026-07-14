@@ -290,8 +290,73 @@ if ($method === "GET") {
     $mode = $_GET["mode"] ?? "";
 
     if ($mode === "quote") {
-        $symbol = normalizeStockSymbol($_GET["symbol"] ?? "");
-        echo json_encode(fetchStockQuote($symbol), JSON_UNESCAPED_UNICODE);
+        $query = trim((string) ($_GET["q"] ?? $_GET["symbol"] ?? $_GET["name"] ?? ""));
+
+        if ($query === "") {
+            http_response_code(400);
+            echo json_encode(["ok" => false, "error" => "종목명을 입력해 주세요."], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        if (isCashSymbol($query) || preg_match('/현금|기타|cash|rest|other/iu', $query)) {
+            echo json_encode(
+                [
+                    "ok" => true,
+                    "cash" => true,
+                    "symbol" => "CASH",
+                    "name" => "현금/기타",
+                    "currency" => "KRW",
+                    "price" => 1,
+                    "priceKrw" => 1,
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+            exit;
+        }
+
+        $symbol = resolveStockSymbolFromQuery($query);
+
+        if ($symbol === "") {
+            echo json_encode(
+                ["ok" => false, "error" => "종목을 찾지 못했습니다.", "query" => $query],
+                JSON_UNESCAPED_UNICODE
+            );
+            exit;
+        }
+
+        $quote = fetchStockQuote($symbol);
+        $usdKrw = fetchUsdKrwRate();
+
+        if (!$quote || empty($quote["ok"])) {
+            echo json_encode(
+                [
+                    "ok" => false,
+                    "symbol" => $symbol,
+                    "error" => $quote["error"] ?? "시세를 가져오지 못했습니다.",
+                    "usdKrw" => $usdKrw,
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+            exit;
+        }
+
+        $price = (float) $quote["price"];
+        $currency = strtoupper((string) ($quote["currency"] ?? "USD"));
+        $priceKrw = $currency === "KRW" ? $price : $price * $usdKrw;
+
+        echo json_encode(
+            [
+                "ok" => true,
+                "cash" => false,
+                "symbol" => $quote["symbol"] ?: $symbol,
+                "name" => $quote["name"] ?: $query,
+                "currency" => $currency,
+                "price" => $price,
+                "priceKrw" => $priceKrw,
+                "usdKrw" => $usdKrw,
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
         exit;
     }
 
