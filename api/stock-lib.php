@@ -99,6 +99,49 @@ function httpGetJson($url, $timeout = 12)
         $errors[] = "allow_url_fopen=0";
     }
 
+    // Synology Web Station PHP often ships without curl/openssl extensions.
+    // Fall back to the system curl binary when available.
+    $curlBin = null;
+    foreach (["/usr/bin/curl", "/bin/curl", "curl"] as $candidate) {
+        if ($candidate === "curl") {
+            if (function_exists("shell_exec")) {
+                $which = @shell_exec("command -v curl 2>/dev/null");
+                if (is_string($which) && trim($which) !== "") {
+                    $curlBin = trim($which);
+                }
+            }
+            break;
+        }
+        if (is_executable($candidate)) {
+            $curlBin = $candidate;
+            break;
+        }
+    }
+
+    if ($curlBin && function_exists("shell_exec") && !preg_match('/[;&|`$<>]/', $url)) {
+        $cmd = escapeshellarg($curlBin)
+            . " -sS -L --max-time " . (int) $timeout
+            . " -A " . escapeshellarg($ua)
+            . " -H " . escapeshellarg("Accept: application/json,text/plain,*/*")
+            . " -H " . escapeshellarg("Accept-Language: ko-KR,ko;q=0.9,en;q=0.8")
+            . " -H " . escapeshellarg("Referer: https://m.stock.naver.com/")
+            . " --compressed "
+            . escapeshellarg($url)
+            . " 2>&1";
+        $body = @shell_exec($cmd);
+        if (is_string($body) && $body !== "") {
+            $data = json_decode($body, true);
+            if (is_array($data)) {
+                return $data;
+            }
+            $errors[] = "bin-curl non-json: " . substr(trim($body), 0, 120);
+        } else {
+            $errors[] = "bin-curl empty/fail";
+        }
+    } else {
+        $errors[] = $curlBin ? "shell_exec unavailable" : "system curl not found";
+    }
+
     $GLOBALS["HTTP_LAST_ERROR"] = implode(" | ", $errors);
     return null;
 }
@@ -119,12 +162,21 @@ function httpProbeUrl($url)
 function httpProbeReport()
 {
     $curlVersion = function_exists("curl_version") ? curl_version() : null;
+    $curlBin = null;
+    foreach (["/usr/bin/curl", "/bin/curl"] as $candidate) {
+        if (is_executable($candidate)) {
+            $curlBin = $candidate;
+            break;
+        }
+    }
 
     return [
         "php" => PHP_VERSION,
         "curl" => function_exists("curl_init"),
         "curlSsl" => is_array($curlVersion) ? !empty($curlVersion["features"]) && ((int) $curlVersion["features"] & (defined("CURL_VERSION_SSL") ? CURL_VERSION_SSL : 0)) : null,
         "curlVersion" => is_array($curlVersion) ? ($curlVersion["version"] ?? null) : null,
+        "systemCurl" => $curlBin,
+        "shellExec" => function_exists("shell_exec") && !in_array("shell_exec", array_map("trim", explode(",", (string) ini_get("disable_functions"))), true),
         "allowUrlFopen" => (bool) ini_get("allow_url_fopen"),
         "openssl" => extension_loaded("openssl"),
         "probes" => [
