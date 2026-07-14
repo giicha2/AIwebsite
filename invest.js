@@ -271,33 +271,56 @@
     if (state.lineChart) state.lineChart.destroy();
 
     const labels = series.map((p) => p.label || p.date);
-    const values = series.map((p) => Number(p.totalKrw) || 0);
+    const values = valuesOrZero(series);
+    const labelText = mode === "daily" ? "일간 총액" : mode === "weekly" ? "주간 총액" : "월간 총액";
 
     state.lineChart = new Chart(canvas, {
-      type: "line",
       data: {
         labels: labels.length ? labels : ["데이터 없음"],
         datasets: [
           {
-            label: mode === "daily" ? "일간 총액" : mode === "weekly" ? "주간 총액" : "월간 총액",
-            data: values.length ? values : [0],
+            type: "bar",
+            label: labelText,
+            data: values,
+            backgroundColor: "rgba(56, 189, 248, 0.35)",
             borderColor: "#38bdf8",
-            backgroundColor: "rgba(56, 189, 248, 0.15)",
-            fill: true,
+            borderWidth: 1,
+            borderRadius: 4,
+            maxBarThickness: 36,
+            order: 2,
+          },
+          {
+            type: "line",
+            label: `${labelText} 추세`,
+            data: values,
+            borderColor: "#7dd3fc",
+            backgroundColor: "transparent",
+            borderWidth: 2,
+            fill: false,
             tension: 0.25,
             pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: "#38bdf8",
+            pointBorderColor: "#e2e8f0",
+            pointBorderWidth: 1,
+            order: 1,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
         scales: {
           x: {
             ticks: { color: "#94a3b8", maxRotation: 0 },
-            grid: { color: "rgba(148, 163, 184, 0.15)" },
+            grid: { display: false },
           },
           y: {
+            beginAtZero: true,
             ticks: {
               color: "#94a3b8",
               callback(value) {
@@ -312,6 +335,7 @@
           tooltip: {
             callbacks: {
               label(context) {
+                if (context.dataset.type === "line") return null;
                 return formatKrw(context.raw);
               },
             },
@@ -319,6 +343,11 @@
         },
       },
     });
+  }
+
+  function valuesOrZero(series) {
+    const values = (series || []).map((p) => Number(p.totalKrw) || 0);
+    return values.length ? values : [0];
   }
 
   async function fetchQuoteForName(name) {
@@ -341,7 +370,8 @@
     }
 
     if (!response.ok || !data?.ok) {
-      throw new Error(data?.error || "시세를 불러오지 못했습니다.");
+      const detail = data?.symbol ? ` (${data.symbol})` : "";
+      throw new Error((data?.error || "시세를 불러오지 못했습니다.") + detail);
     }
 
     return data;

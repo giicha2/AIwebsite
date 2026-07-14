@@ -377,6 +377,7 @@ if ($method === "GET") {
                     "ok" => false,
                     "symbol" => $symbol,
                     "error" => $quote["error"] ?? "시세를 가져오지 못했습니다.",
+                    "attempts" => $quote["attempts"] ?? [],
                     "usdKrw" => $usdKrw,
                     "usdKrwSource" => $fx["source"] ?? "unknown",
                 ],

@@ -3,51 +3,65 @@ require_once __DIR__ . "/blog-auth-lib.php";
 
 function httpGetJson($url, $timeout = 14)
 {
-    $headers = [
+    $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+    $headerLines = [
         "Accept: application/json,text/plain,*/*",
         "Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer: https://m.stock.naver.com/",
     ];
-    $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
     if (function_exists("curl_init")) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_CONNECTTIMEOUT => $timeout,
-            CURLOPT_TIMEOUT => $timeout,
-            CURLOPT_USERAGENT => $ua,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_ENCODING => "",
-        ]);
-        $body = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        foreach ([true, false] as $verifySsl) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => $timeout,
+                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_USERAGENT => $ua,
+                CURLOPT_HTTPHEADER => $headerLines,
+                CURLOPT_SSL_VERIFYPEER => $verifySsl,
+                CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
+                CURLOPT_ENCODING => "",
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-        if ($body === false || $code >= 400) {
-            return null;
+            if ($body !== false && $code > 0 && $code < 400) {
+                $data = json_decode($body, true);
+                if (is_array($data)) {
+                    return $data;
+                }
+            }
         }
 
-        $data = json_decode($body, true);
-        return is_array($data) ? $data : null;
-    }
-
-    $context = stream_context_create([
-        "http" => [
-            "method" => "GET",
-            "timeout" => $timeout,
-            "header" => "User-Agent: {$ua}\r\n" . implode("\r\n", $headers) . "\r\n",
-        ],
-    ]);
-    $body = @file_get_contents($url, false, $context);
-
-    if ($body === false) {
         return null;
     }
 
-    $data = json_decode($body, true);
-    return is_array($data) ? $data : null;
+    foreach ([true, false] as $verifySsl) {
+        $context = stream_context_create([
+            "http" => [
+                "method" => "GET",
+                "timeout" => $timeout,
+                "header" => "User-Agent: {$ua}\r\n" . implode("\r\n", $headerLines) . "\r\n",
+            ],
+            "ssl" => [
+                "verify_peer" => $verifySsl,
+                "verify_peer_name" => $verifySsl,
+            ],
+        ]);
+        $body = @file_get_contents($url, false, $context);
+        if ($body === false) {
+            continue;
+        }
+        $data = json_decode($body, true);
+        if (is_array($data)) {
+            return $data;
+        }
+    }
+
+    return null;
 }
 
 function normalizeStockSymbol($symbol)
@@ -124,11 +138,58 @@ function looksLikeTickerSymbol($symbol)
 
 function parseKrwNumber($value)
 {
-    $raw = preg_replace('/[^\d.]/', '', (string) $value);
+    $raw = preg_replace('/[^\d.\-]/', '', (string) $value);
     if ($raw === "" || $raw === null) {
         return 0.0;
     }
     return (float) $raw;
+}
+
+function naverSearchStock($query)
+{
+    $query = trim((string) $query);
+    if ($query === "") {
+        return null;
+    }
+
+    $url = "https://m.stock.naver.com/front-api/search/autoComplete?"
+        . http_build_query([
+            "query" => $query,
+            "target" => "stock",
+        ]);
+
+    $data = httpGetJson($url);
+    $items = $data["result"]["items"] ?? null;
+
+    if (!is_array($items) || count($items) === 0) {
+        return null;
+    }
+
+    $first = $items[0];
+    $code = (string) ($first["code"] ?? "");
+    $reuters = (string) ($first["reutersCode"] ?? $code);
+    $nation = strtoupper((string) ($first["nationCode"] ?? ""));
+    $name = (string) ($first["name"] ?? $code);
+
+    if ($reuters === "") {
+        return null;
+    }
+
+    if ($nation === "KOR" || preg_match('/^\d{6}$/', $code)) {
+        return [
+            "symbol" => normalizeStockSymbol($code),
+            "reutersCode" => $code,
+            "market" => "domestic",
+            "name" => $name,
+        ];
+    }
+
+    return [
+        "symbol" => strtoupper($code !== "" ? $code : preg_replace('/\..*$/', "", $reuters)),
+        "reutersCode" => $reuters,
+        "market" => "world",
+        "name" => $name,
+    ];
 }
 
 function yahooSearchSymbol($query)
@@ -154,8 +215,6 @@ function yahooSearchSymbol($query)
             continue;
         }
 
-        $preferred = null;
-
         foreach ($data["quotes"] as $quote) {
             if (!is_array($quote)) {
                 continue;
@@ -171,23 +230,12 @@ function yahooSearchSymbol($query)
             if ($type === "EQUITY" || $type === "ETF") {
                 return normalizeStockSymbol($symbol);
             }
-
-            if ($preferred === null) {
-                $preferred = normalizeStockSymbol($symbol);
-            }
-        }
-
-        if ($preferred) {
-            return $preferred;
         }
     }
 
     return null;
 }
 
-/**
- * Resolve a user-entered name or ticker into a Yahoo/Naver symbol.
- */
 function resolveStockSymbolFromQuery($query)
 {
     $query = trim((string) $query);
@@ -219,9 +267,13 @@ function resolveStockSymbolFromQuery($query)
     if (
         preg_match('/^\d{6}\.(KS|KQ)$/', $normalized)
         || preg_match('/^[A-Z]{1,5}(-[A-Z])?$/', $normalized)
-        || preg_match('/^[A-Z0-9]{1,5}\.(KS|KQ)$/', $normalized)
     ) {
         return $normalized;
+    }
+
+    $naver = naverSearchStock($query);
+    if ($naver && !empty($naver["symbol"])) {
+        return normalizeStockSymbol($naver["symbol"]);
     }
 
     $searched = yahooSearchSymbol($query);
@@ -309,22 +361,74 @@ function extractQuoteFromChart($chart)
     ];
 }
 
-function fetchNaverKrQuote($symbol)
+function fetchNaverDomesticQuote($code)
 {
-    if (preg_match('/^(\d{6})\.(KS|KQ)$/', strtoupper((string) $symbol), $m)) {
-        $code = $m[1];
-        $suffix = $m[2];
-    } elseif (preg_match('/^(\d{6})$/', (string) $symbol, $m2)) {
-        $code = $m2[1];
-        $suffix = "KS";
-    } else {
+    $code = preg_replace('/\D/', '', (string) $code);
+    if (!preg_match('/^\d{6}$/', $code)) {
         return null;
     }
 
-    $url = "https://m.stock.naver.com/api/stock/{$code}/basic";
-    $data = httpGetJson($url);
+    // Prefer mobile basic API.
+    $data = httpGetJson("https://m.stock.naver.com/api/stock/{$code}/basic");
+    if (is_array($data)) {
+        $close = parseKrwNumber($data["closePrice"] ?? 0);
+        if ($close > 0) {
+            $change = parseKrwNumber($data["compareToPreviousClosePrice"] ?? 0);
+            $prevClose = $close - $change;
+            if (!($prevClose > 0)) {
+                $prevClose = $close;
+            }
 
-    if (!is_array($data)) {
+            return [
+                "symbol" => $code . ".KS",
+                "currency" => "KRW",
+                "exchange" => (string) ($data["stockExchangeName"] ?? "KRX"),
+                "price" => $prevClose,
+                "previousClose" => $prevClose,
+                "regularMarketPrice" => $close,
+                "shortName" => (string) ($data["stockName"] ?? ""),
+                "source" => "naver",
+            ];
+        }
+    }
+
+    // Fallback: realtime polling (pcv = previous close).
+    $poll = httpGetJson(
+        "https://polling.finance.naver.com/api/realtime?" . http_build_query([
+            "query" => "SERVICE_ITEM:" . $code,
+        ])
+    );
+    $row = $poll["result"]["areas"][0]["datas"][0] ?? null;
+    if (is_array($row)) {
+        $prev = (float) ($row["pcv"] ?? 0);
+        $now = (float) ($row["nv"] ?? 0);
+        $price = $prev > 0 ? $prev : $now;
+        if ($price > 0) {
+            return [
+                "symbol" => $code . ".KS",
+                "currency" => "KRW",
+                "exchange" => "KRX",
+                "price" => $price,
+                "previousClose" => $prev > 0 ? $prev : $price,
+                "regularMarketPrice" => $now > 0 ? $now : $price,
+                "shortName" => (string) ($row["nm"] ?? ""),
+                "source" => "naver-poll",
+            ];
+        }
+    }
+
+    return null;
+}
+
+function fetchNaverWorldQuote($reutersCode, $fallbackSymbol = "")
+{
+    $reutersCode = trim((string) $reutersCode);
+    if ($reutersCode === "") {
+        return null;
+    }
+
+    $data = httpGetJson("https://api.stock.naver.com/stock/" . rawurlencode($reutersCode) . "/basic");
+    if (!is_array($data) || isset($data["code"])) {
         return null;
     }
 
@@ -336,25 +440,72 @@ function fetchNaverKrQuote($symbol)
     $change = parseKrwNumber($data["compareToPreviousClosePrice"] ?? 0);
     $prevClose = $close - $change;
     if (!($prevClose > 0)) {
+        // Prefer explicit basePrice (전일) from infos when present.
+        foreach (($data["stockItemTotalInfos"] ?? []) as $info) {
+            if (($info["code"] ?? "") === "basePrice") {
+                $base = parseKrwNumber($info["value"] ?? 0);
+                if ($base > 0) {
+                    $prevClose = $base;
+                }
+                break;
+            }
+        }
+    }
+    if (!($prevClose > 0)) {
         $prevClose = $close;
     }
 
-    $price = $prevClose > 0 ? $prevClose : $close;
+    $currency = strtoupper((string) ($data["currencyType"]["code"] ?? $data["currencyType"]["name"] ?? "USD"));
+    $symbol = strtoupper((string) ($data["symbolCode"] ?? $fallbackSymbol));
+    if ($symbol === "") {
+        $symbol = strtoupper(preg_replace('/\..*$/', "", $reutersCode));
+    }
 
     return [
-        "symbol" => $code . "." . $suffix,
-        "currency" => "KRW",
-        "exchange" => (string) ($data["stockExchangeName"] ?? "KRX"),
-        "price" => $price,
+        "symbol" => $symbol,
+        "currency" => $currency !== "" ? $currency : "USD",
+        "exchange" => (string) ($data["stockExchangeName"] ?? ""),
+        "price" => $prevClose,
         "previousClose" => $prevClose,
         "regularMarketPrice" => $close,
-        "shortName" => (string) ($data["stockName"] ?? ""),
-        "source" => "naver",
+        "shortName" => (string) ($data["stockName"] ?? $data["stockNameEng"] ?? ""),
+        "source" => "naver-world",
     ];
+}
+
+function guessNaverWorldCodes($symbol)
+{
+    $symbol = strtoupper(trim((string) $symbol));
+    if ($symbol === "" || preg_match('/^\d{6}/', $symbol)) {
+        return [];
+    }
+
+    // Common Yahoo → Naver reuters suffixes.
+    $guesses = [$symbol . ".O", $symbol . ".N", $symbol . ".K", $symbol];
+
+    $map = [
+        "TSLA" => ["TSLA.O"],
+        "AAPL" => ["AAPL.O"],
+        "MSFT" => ["MSFT.O"],
+        "AMZN" => ["AMZN.O"],
+        "GOOGL" => ["GOOGL.O"],
+        "GOOG" => ["GOOG.O"],
+        "META" => ["META.O"],
+        "NVDA" => ["NVDA.O"],
+        "NFLX" => ["NFLX.O"],
+        "BRK-B" => ["BRK_B.N", "BRK-B.N"],
+    ];
+
+    if (isset($map[$symbol])) {
+        $guesses = array_merge($map[$symbol], $guesses);
+    }
+
+    return array_values(array_unique($guesses));
 }
 
 function fetchUsdKrwQuote()
 {
+    // Prefer Naver FX page APIs are unstable; try Yahoo then open.er-api.
     $chart = fetchYahooChart("KRW=X", "5d", "1d");
     $quote = $chart ? extractQuoteFromChart($chart) : null;
 
@@ -387,14 +538,16 @@ function fetchUsdKrwRate()
 function fetchStockQuote($symbol)
 {
     $symbol = normalizeStockSymbol($symbol);
+    $attempts = [];
 
     if ($symbol === "") {
         return null;
     }
 
-    // Korean tickers: Naver first (more reliable from KR NAS), Yahoo second.
-    if (preg_match('/^\d{6}\.(KS|KQ)$/', $symbol)) {
-        $naver = fetchNaverKrQuote($symbol);
+    // 1) Korean domestic via Naver
+    if (preg_match('/^(\d{6})\.(KS|KQ)$/', $symbol, $m)) {
+        $naver = fetchNaverDomesticQuote($m[1]);
+        $attempts[] = "naver-domestic";
         if ($naver && $naver["price"] > 0) {
             return [
                 "symbol" => $naver["symbol"],
@@ -404,11 +557,38 @@ function fetchStockQuote($symbol)
                 "price" => $naver["price"],
                 "previousClose" => $naver["previousClose"],
                 "name" => $naver["shortName"],
-                "source" => "naver",
+                "source" => $naver["source"],
             ];
         }
     }
 
+    // 2) Overseas / ticker via Naver world API
+    $worldCodes = guessNaverWorldCodes($symbol);
+    $searched = naverSearchStock($symbol);
+    if ($searched && ($searched["market"] ?? "") === "world" && !empty($searched["reutersCode"])) {
+        array_unshift($worldCodes, $searched["reutersCode"]);
+        $worldCodes = array_values(array_unique($worldCodes));
+    }
+
+    foreach ($worldCodes as $code) {
+        $attempts[] = "naver-world:" . $code;
+        $world = fetchNaverWorldQuote($code, $symbol);
+        if ($world && $world["price"] > 0) {
+            return [
+                "symbol" => $world["symbol"] !== "" ? $world["symbol"] : $symbol,
+                "ok" => true,
+                "currency" => $world["currency"],
+                "exchange" => $world["exchange"],
+                "price" => $world["price"],
+                "previousClose" => $world["previousClose"],
+                "name" => $world["shortName"],
+                "source" => $world["source"],
+            ];
+        }
+    }
+
+    // 3) Yahoo last resort
+    $attempts[] = "yahoo";
     $chart = fetchYahooChart($symbol, "5d", "1d");
     $quote = $chart ? extractQuoteFromChart($chart) : null;
 
@@ -428,7 +608,8 @@ function fetchStockQuote($symbol)
     return [
         "symbol" => $symbol,
         "ok" => false,
-        "error" => "시세를 가져오지 못했습니다. (Yahoo/Naver 응답 없음)",
+        "error" => "시세를 가져오지 못했습니다. (Naver/Yahoo)",
+        "attempts" => $attempts,
     ];
 }
 
