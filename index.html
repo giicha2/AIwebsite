@@ -1591,6 +1591,13 @@
       .invest-line-wrap {
         position: relative;
         height: 150px;
+        max-width: 100%;
+        overflow: hidden;
+      }
+
+      .invest-line-wrap canvas,
+      .invest-pie-wrap canvas {
+        max-width: 100% !important;
       }
 
       .invest-pie-title {
@@ -1615,23 +1622,34 @@
         margin: 0;
       }
 
-      .invest-layout {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-        align-items: start;
-      }
-
-      .invest-layout--stack {
-        grid-template-columns: 1fr;
-      }
-
       .invest-chart-card,
       .invest-side {
         padding: 18px;
         border-radius: 14px;
         border: 1px solid var(--color-border);
         background: var(--color-form-bg);
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+      }
+
+      .hero--invest {
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: clip;
+      }
+
+      .invest-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        align-items: start;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .invest-layout--stack {
+        grid-template-columns: 1fr;
       }
 
       .invest-chart-card h3,
@@ -1755,11 +1773,15 @@
         display: flex;
         align-items: baseline;
         gap: 8px;
-        min-width: 140px;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .invest-item-main strong {
         font-size: 0.95rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .invest-item-symbol,
@@ -1991,6 +2013,78 @@
       }
 
       @media (max-width: 800px) {
+        .hero--invest {
+          padding: 16px 12px;
+        }
+
+        .invest-chart-card,
+        .invest-side {
+          padding: 12px;
+        }
+
+        .invest-total-panel {
+          padding: 12px;
+          margin-bottom: 14px;
+        }
+
+        .invest-total-head {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+        }
+
+        .invest-total-summary {
+          min-width: 0;
+        }
+
+        .invest-total-row strong {
+          font-size: 1.2rem;
+          word-break: keep-all;
+        }
+
+        .invest-range-tabs {
+          width: 100%;
+        }
+
+        .invest-range-btn {
+          flex: 1;
+          padding: 6px 8px;
+          text-align: center;
+        }
+
+        .invest-side-head {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .invest-item {
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 10px;
+        }
+
+        .invest-item-body {
+          flex: 1 1 calc(100% - 120px);
+          min-width: 0;
+        }
+
+        .invest-item-symbol {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 9em;
+        }
+
+        .invest-item-meta {
+          margin-left: 0;
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .invest-edit-btn {
+          margin-left: auto;
+        }
+
         .invest-footer-note {
           flex-direction: column;
           align-items: stretch;
@@ -2009,14 +2103,23 @@
 
         .invest-amount-hangul {
           white-space: normal;
+          word-break: keep-all;
         }
 
         .invest-add-row {
-          grid-template-columns: 40px 1fr 1fr;
+          grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .invest-add-row.is-editing {
+          grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 36px;
         }
 
         .invest-add-row input[name="holdingName"] {
           grid-column: 2 / -1;
+        }
+
+        .invest-add-row.is-editing input[name="holdingName"] {
+          grid-column: 2 / 4;
         }
 
         .invest-add-plus {
@@ -2025,16 +2128,25 @@
           height: auto;
         }
 
-        .invest-item-meta {
-          margin-left: 0;
+        .invest-add-cancel {
+          grid-column: 4;
+          grid-row: 1 / span 2;
+          align-self: stretch;
+          height: auto;
         }
 
         .invest-pie-wrap {
-          height: 280px;
+          height: 240px;
+          max-width: 100%;
+          overflow: hidden;
         }
       }
 
       @media (max-width: 640px) {
+        .container {
+          padding: 0 12px;
+        }
+
         .header-inner {
           flex-direction: column;
           align-items: flex-start;
@@ -2064,7 +2176,11 @@
         }
 
         .hero {
-          padding: 28px 24px;
+          padding: 28px 16px;
+        }
+
+        .hero--invest {
+          padding: 14px 10px;
         }
 
         .hero--album {
@@ -2072,7 +2188,7 @@
         }
 
         .insta-feed {
-          margin: 0 -24px -16px;
+          margin: 0 -16px -16px;
         }
 
         .video-grid {
@@ -2086,10 +2202,10 @@
 
         .hero--projects,
         .hero--project-detail {
-          width: calc(100% + 48px);
+          width: calc(100% + 24px);
           max-width: none;
-          margin-left: -24px;
-          margin-right: -24px;
+          margin-left: -12px;
+          margin-right: -12px;
         }
 
         .blog-post-body {
@@ -2097,7 +2213,7 @@
         }
 
         .project-back {
-          margin: 20px 24px 0;
+          margin: 20px 12px 0;
         }
 
         .project-detail-body {
