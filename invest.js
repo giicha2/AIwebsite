@@ -323,8 +323,13 @@
             beginAtZero: true,
             ticks: {
               color: "#94a3b8",
+              maxTicksLimit: 5,
               callback(value) {
-                return Number(value).toLocaleString("ko-KR");
+                const man = Number(value) / 10000;
+                return `${man.toLocaleString("ko-KR", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}만`;
               },
             },
             grid: { color: "rgba(148, 163, 184, 0.15)" },
@@ -336,7 +341,11 @@
             callbacks: {
               label(context) {
                 if (context.dataset.type === "line") return null;
-                return formatKrw(context.raw);
+                const man = Number(context.raw || 0) / 10000;
+                return `${man.toLocaleString("ko-KR", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}만원`;
               },
             },
           },
@@ -754,7 +763,6 @@
         <div>
           <span class="badge">내 자산</span>
           <h2>투자 현황</h2>
-          <p>전일 종가 기준으로 평가합니다. 수량·금액은 시세로 서로 자동 환산됩니다.</p>
         </div>
       </div>
 
@@ -808,7 +816,10 @@
         </section>
       </div>
 
-      <p class="invest-fx-rate">환율 USD/KRW · ${Number(data.usdKrw || 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원${data.usdKrwSource && data.usdKrwSource !== "fallback" ? "" : data.usdKrwSource === "fallback" ? " (참고치)" : ""}</p>
+      <div class="invest-footer-note">
+        <p class="invest-eval-note">전일 종가 기준으로 평가합니다. 수량·금액은 시세로 서로 자동 환산됩니다.</p>
+        <p class="invest-fx-rate">환율 USD/KRW · ${Number(data.usdKrw || 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원${data.usdKrwSource === "fallback" ? " (참고치)" : ""}</p>
+      </div>
     `;
 
     await drawPie(state, holdings);
