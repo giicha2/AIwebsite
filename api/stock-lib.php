@@ -485,6 +485,27 @@ function extractQuoteFromChart($chart)
     ];
 }
 
+function stockLogoUrlForSymbol($symbol, $reutersCode = "")
+{
+    $reutersCode = trim((string) $reutersCode);
+    $symbol = strtoupper(trim((string) $symbol));
+
+    if ($reutersCode !== "" && preg_match('/^[A-Z0-9._-]+$/i', $reutersCode)) {
+        return "https://ssl.pstatic.net/imgstock/fn/real/logo/stock/Stock{$reutersCode}.svg";
+    }
+
+    if (preg_match('/^(\d{6})\.(KS|KQ)$/', $symbol, $m)) {
+        return "https://ssl.pstatic.net/imgstock/fn/real/logo/stock/Stock{$m[1]}.svg";
+    }
+
+    if (preg_match('/^[A-Z0-9][A-Z0-9.-]{0,14}$/', $symbol)) {
+        // Common overseas logo key on Naver CDN
+        return "https://ssl.pstatic.net/imgstock/fn/real/logo/stock/Stock{$symbol}.O.svg";
+    }
+
+    return "";
+}
+
 function fetchNaverDomesticQuote($code)
 {
     $code = preg_replace('/\D/', '', (string) $code);
@@ -511,6 +532,7 @@ function fetchNaverDomesticQuote($code)
                 "previousClose" => $prevClose,
                 "regularMarketPrice" => $close,
                 "shortName" => (string) ($data["stockName"] ?? ""),
+                "logoUrl" => (string) ($data["itemLogoUrl"] ?? $data["itemLogoPngUrl"] ?? ""),
                 "source" => "naver",
             ];
         }
@@ -536,6 +558,7 @@ function fetchNaverDomesticQuote($code)
                 "previousClose" => $prev > 0 ? $prev : $price,
                 "regularMarketPrice" => $now > 0 ? $now : $price,
                 "shortName" => (string) ($row["nm"] ?? ""),
+                "logoUrl" => stockLogoUrlForSymbol($code . ".KS", $code),
                 "source" => "naver-poll",
             ];
         }
@@ -585,6 +608,11 @@ function fetchNaverWorldQuote($reutersCode, $fallbackSymbol = "")
         $symbol = strtoupper(preg_replace('/\..*$/', "", $reutersCode));
     }
 
+    $logo = (string) ($data["itemLogoUrl"] ?? $data["itemLogoPngUrl"] ?? "");
+    if ($logo === "") {
+        $logo = stockLogoUrlForSymbol($symbol, $reutersCode);
+    }
+
     return [
         "symbol" => $symbol,
         "currency" => $currency !== "" ? $currency : "USD",
@@ -593,6 +621,7 @@ function fetchNaverWorldQuote($reutersCode, $fallbackSymbol = "")
         "previousClose" => $prevClose,
         "regularMarketPrice" => $close,
         "shortName" => (string) ($data["stockName"] ?? $data["stockNameEng"] ?? ""),
+        "logoUrl" => $logo,
         "source" => "naver-world",
     ];
 }
@@ -681,6 +710,7 @@ function fetchStockQuote($symbol)
                 "price" => $naver["price"],
                 "previousClose" => $naver["previousClose"],
                 "name" => $naver["shortName"],
+                "logoUrl" => $naver["logoUrl"] ?? stockLogoUrlForSymbol($naver["symbol"], $m[1]),
                 "source" => $naver["source"],
             ];
         }
@@ -706,6 +736,7 @@ function fetchStockQuote($symbol)
                 "price" => $world["price"],
                 "previousClose" => $world["previousClose"],
                 "name" => $world["shortName"],
+                "logoUrl" => $world["logoUrl"] ?? stockLogoUrlForSymbol($world["symbol"] ?: $symbol, $code),
                 "source" => $world["source"],
             ];
         }
@@ -725,6 +756,7 @@ function fetchStockQuote($symbol)
             "price" => $quote["price"],
             "previousClose" => $quote["previousClose"],
             "name" => $quote["shortName"],
+            "logoUrl" => stockLogoUrlForSymbol($quote["symbol"] !== "" ? $quote["symbol"] : $symbol),
             "source" => "yahoo",
         ];
     }

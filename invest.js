@@ -179,6 +179,14 @@
                 : `전일종가 ${Number(item.price).toLocaleString("ko-KR")} ${item.currency}`
               : item.quoteError || "시세 갱신 실패";
             const isCash = item.symbol === "CASH";
+            const logo = String(item.logoUrl || "").trim();
+            const initial = (item.name || item.symbol || "?").trim().charAt(0);
+            const logoHtml = isCash
+              ? `<span class="invest-item-logo invest-item-logo--cash" aria-hidden="true">₩</span>`
+              : logo
+                ? `<img class="invest-item-logo" src="${window.escapeHtml?.(logo) || logo}" alt="" width="32" height="32" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.hidden=false" /><span class="invest-item-logo invest-item-logo--fallback" hidden aria-hidden="true">${window.escapeHtml?.(initial) || initial}</span>`
+                : `<span class="invest-item-logo invest-item-logo--fallback" aria-hidden="true">${window.escapeHtml?.(initial) || initial}</span>`;
+
             const editPayload = encodeURIComponent(
               JSON.stringify({
                 id: item.id,
@@ -192,6 +200,7 @@
 
             return `
               <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
+                ${logoHtml}
                 <div class="invest-item-body">
                   <div class="invest-item-main">
                     <strong>${window.escapeHtml?.(item.name) || item.name}</strong>

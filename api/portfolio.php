@@ -110,6 +110,7 @@ function enrichHoldings($holdings, $usdKrw)
             "valueKrw" => 0.0,
             "quoteOk" => false,
             "quoteError" => "",
+            "logoUrl" => "",
         ];
 
         if (isCashSymbol($row["symbol"]) || $row["symbol"] === "") {
@@ -122,6 +123,7 @@ function enrichHoldings($holdings, $usdKrw)
             $row["priceKrw"] = $cashValue;
             $row["valueKrw"] = $cashValue;
             $row["quoteOk"] = true;
+            $row["logoUrl"] = "";
         } else {
             $quote = fetchStockQuote($row["symbol"]);
 
@@ -134,6 +136,7 @@ function enrichHoldings($holdings, $usdKrw)
                 $row["priceKrw"] = $priceKrw;
                 $row["valueKrw"] = $priceKrw * $shares;
                 $row["quoteOk"] = true;
+                $row["logoUrl"] = (string) ($quote["logoUrl"] ?? stockLogoUrlForSymbol($row["symbol"]));
 
                 if ($row["name"] === "" || $row["name"] === $row["symbol"]) {
                     if (!empty($quote["name"])) {
@@ -142,6 +145,7 @@ function enrichHoldings($holdings, $usdKrw)
                 }
             } else {
                 $row["quoteError"] = $quote["error"] ?? "시세 없음";
+                $row["logoUrl"] = stockLogoUrlForSymbol($row["symbol"]);
                 if ($costKrw > 0) {
                     $row["valueKrw"] = $costKrw;
                     $row["priceKrw"] = $shares > 0 ? $costKrw / $shares : $costKrw;
