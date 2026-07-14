@@ -1,69 +1,77 @@
 ---
-description: Push to GitHub when MyWebsite work ends (commit + push via sync-finish)
+description: Push to GitHub and deploy to Synology Drive when MyWebsite work ends
 alwaysApply: true
 ---
 
-# Git sync — push when done (MyWebsite)
+# Git sync — push + deploy when done (MyWebsite)
 
-When the user finishes work or asks to save changes to Git, **run sync-finish** (commit + push).
+When the user finishes work or asks to save/upload changes, **commit + push to GitHub and deploy to Synology Drive**.
 
-## Triggers — run push immediately
+## Triggers — run immediately
 
 User says any of:
 
-- 올려줘 / push / 커밋해줘 / GitHub에 올려 / NAS에 올려
+- 올려줘 / push / 커밋해줘 / GitHub에 올려 / NAS에 올려 / 배포해줘
 - 작업 끝 / 마무리 / 끝났어 / sync-finish
 - PC 바꿀 거야 / 맥으로 갈게 (before switching machines)
 
 ## End of session — offer once
 
-After completing a substantial coding task (files edited, feature done), if nothing was pushed yet in this chat, ask once:
+After completing a substantial coding task, if nothing was pushed/deployed yet in this chat, ask once:
 
-> GitHub에 올릴까요? (올려줘 라고 하면 바로 push 합니다)
+> GitHub에 올리고 Synology 배포까지 할까요? (올려줘 라고 하면 진행합니다)
 
-Do not ask repeatedly in the same session after the user declines.
+Do not ask repeatedly after the user declines.
 
 ## What you must do
 
-1. Check `git status -sb` — if clean, say "변경 없음, push 할 내용 없습니다."
-2. **Update** `Docs/SESSION_HANDOFF.md` before committing when ending work or switching machines (올려줘 / 작업 끝 / PC 바꿀 거야 / 맥으로 갈게):
-   - Set **From** to current machine (`Mac` or `PC`) and **When** to today's date
-   - **Done**: what this session finished
-   - **Next**: what the other machine should continue
-   - **Watch out** / **Notes**: only if relevant
-   - Keep the file short; replace old session content, do not append forever
-3. Build a short commit message from what was done this session (English or Korean, one line).
-4. Run sync-finish with that message (includes the handoff file if changed).
+1. Check `git status -sb`.
+2. **Update** `Docs/SESSION_HANDOFF.md` before committing when ending work or switching machines:
+   - **From** = `Mac` or `PC`, **When** = today
+   - **Done** / **Next** / **Watch out** as needed (replace, do not append forever)
+3. Build a one-line commit message.
+4. Run **sync-finish** (push **and** deploy):
 
-**Windows:**
+**Windows** (`D:\WebWork\MyWebsite`):
 
 ```bat
 D:\WebWork\MyWebsite\scripts\sync-finish.bat "commit message here"
 ```
 
-**Mac:**
+**Mac** (`~/Documents/MyWebsite`):
 
 ```bash
 ./scripts/sync-finish.sh "commit message here"
 ```
 
-5. Report result: pushed commit hash, or error (conflict, auth, etc.).
+5. Report: commit hash (if any), push OK, **deploy paths updated**, remind user to wait for Drive sync + Ctrl+F5.
+6. If the working tree is clean (nothing to commit), **still run deploy** so the live Synology folder matches the work folder.
+
+## Deploy targets (automatic inside sync-finish)
+
+| OS | Copies work folder to |
+|----|------------------------|
+| Windows | `D:\WebWork\SynologyDrive\MyWebsite` **and** `D:\WebWork\SynologyDrive\` (live site root) |
+| Mac | Synology Drive share root + `MyWebsite/` under it (auto-detected) |
+
+Do **not** only push GitHub and skip deploy when the user said 올려줘 / NAS에 올려 / 배포해줘.
+
+Excluded from deploy: `.git`, `Docs`, `.cursor`, thumbs caches, `writable/blog-auth.json`, `portfolio.json`, sessions.
 
 ## Commit message
 
-- One clear line: what changed, not file lists.
-- Example: `Fix gallery video thumbnails and add dark mode toggle`
+- One clear line: why/what changed.
+- Example: `Add private invest portfolio page with allocation charts`
 
 ## Do not
 
-- Push without any staged/unstaged changes (sync-finish handles no-op).
-- Push in the middle of unfinished work unless the user explicitly asks.
-- Force push or skip hooks unless the user explicitly requests it.
-- Commit `writable/blog-auth.json` (must stay gitignored).
+- Force push unless explicitly requested.
+- Commit secrets (`writable/blog-auth.json`, etc.).
+- Stop after GitHub push without deploying when upload was requested.
 
 ## Pair with pull rule
 
-- **Start of work:** `git-sync-start.mdc` → pull first + read handoff memo
-- **End of work:** this rule → update memo + commit + push
+- **Start:** `git-sync-start.mdc` → pull + read `Docs/SESSION_HANDOFF.md`
+- **End:** this rule → memo + push + **Synology Drive deploy**
 
-Git remote (`origin`): `https://github.com/giicha2/AIwebsite.git`
+Origin: `https://github.com/giicha2/AIwebsite.git`

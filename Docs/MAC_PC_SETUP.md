@@ -24,7 +24,7 @@ cd ~/Documents/MyWebsite && ./scripts/sync-start.sh
 
 Cursor는 pull 후 `Docs/SESSION_HANDOFF.md`를 읽고 **From / When / Done / Next / Watch out**을 보고한다.
 
-**끝 (올리기):**
+**끝 (올리기 + 사이트 배포):**
 
 ```bat
 D:\WebWork\MyWebsite\scripts\sync-finish.bat "커밋 메시지"
@@ -34,7 +34,7 @@ D:\WebWork\MyWebsite\scripts\sync-finish.bat "커밋 메시지"
 ./scripts/sync-finish.sh "커밋 메시지"
 ```
 
-또는 Cursor에게 **「올려줘」**.
+또는 Cursor에게 **「올려줘」** → GitHub push **후** Synology Drive 배포 폴더까지 복사합니다.
 
 ## Mac 최초 1회
 
@@ -47,9 +47,5 @@ cd ~/Documents/MyWebsite
 
 ## NAS에 반영
 
-GitHub에 올린 뒤, 배포가 Drive/`Share_Web`을 보면:
-
-- 작업 폴더 내용을 배포 경로에 복사하거나
-- CI/수동으로 동기화
-
-코딩은 항상 `~/Documents/MyWebsite` 또는 `D:\WebWork\MyWebsite`에서만.
+`scripts/sync-finish`가 작업 폴더를 Synology Drive에 복사합니다 (Windows: `D:\WebWork\SynologyDrive` + `MyWebsite`).  
+Drive 동기화가 끝나면 라이브 사이트에 반영됩니다. 코딩은 항상 로컬 작업 폴더에서만.

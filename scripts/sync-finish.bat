@@ -7,17 +7,29 @@ if "%~1"=="" (
   exit /b 1
 )
 
+set "DID_PUSH=0"
+
 git add -A
 git diff --cached --quiet
-if not errorlevel 1 (
-  echo No changes to commit.
-  exit /b 0
+if errorlevel 1 (
+  git commit -m "%~1"
+  if errorlevel 1 exit /b 1
+
+  git push
+  if errorlevel 1 exit /b 1
+
+  set "DID_PUSH=1"
+  echo Changes pushed.
+) else (
+  echo No new commit. Working tree clean for git.
 )
 
-git commit -m "%~1"
+call "%~dp0deploy-to-synology.bat"
 if errorlevel 1 exit /b 1
 
-git push
-if errorlevel 1 exit /b 1
-
-echo Changes pushed.
+if "%DID_PUSH%"=="1" (
+  echo Done: GitHub push + Synology Drive deploy.
+) else (
+  echo Done: Synology Drive deploy only.
+)
+exit /b 0

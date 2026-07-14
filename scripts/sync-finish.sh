@@ -7,12 +7,22 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
+DID_PUSH=0
+
 git add -A
-if git diff --cached --quiet; then
-  echo "No changes to commit."
-  exit 0
+if ! git diff --cached --quiet; then
+  git commit -m "$1"
+  git push
+  DID_PUSH=1
+  echo "Changes pushed."
+else
+  echo "No new commit. Working tree clean for git."
 fi
 
-git commit -m "$1"
-git push
-echo "Changes pushed."
+bash "$(dirname "$0")/deploy-to-synology.sh"
+
+if [[ "$DID_PUSH" -eq 1 ]]; then
+  echo "Done: GitHub push + Synology Drive deploy."
+else
+  echo "Done: Synology Drive deploy only."
+fi
