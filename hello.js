@@ -22,6 +22,12 @@ const contents = {
     ],
     dynamic: "blog",
   },
+  invest: {
+    badge: "내 자산",
+    title: "투자 현황",
+    paragraphs: ["로그인 후 나만의 투자 비율과 평가금액을 확인합니다."],
+    dynamic: "invest",
+  },
   about: {
     badge: "소개",
     title: "1인개발TV는",
@@ -146,7 +152,7 @@ function parseHashRoute() {
   return { tab: hash || "home", projectId: null };
 }
 
-const navTabs = ["home", "projects", "gallery", "blog"];
+const navTabs = ["home", "projects", "gallery", "blog", "invest"];
 
 function setActiveTab(tab) {
   document.querySelectorAll(".tab").forEach((item) => {
@@ -1456,6 +1462,15 @@ async function renderDynamicContent(tab, data) {
     return;
   }
 
+  if (data.dynamic === "invest") {
+    if (typeof window.renderInvestContent === "function") {
+      await window.renderInvestContent();
+    } else {
+      content.innerHTML = `<p class="blog-status error">invest.js를 불러오지 못했습니다.</p>`;
+    }
+    return;
+  }
+
   if (data.dynamic === "projects") {
     const route = parseHashRoute();
 
@@ -1790,10 +1805,24 @@ function initWidgets() {
 
 if (!location.hash) {
   location.hash = "home";
-} else {
+} else if (location.hash.replace(/^#/, "") !== "invest") {
   handleRouteChange();
 }
 
 initTabs();
 initWidgets();
 initLightboxControls();
+
+window.__helloReady = true;
+window.__retryRouteIfNeeded = function retryRouteIfNeeded() {
+  const tab = location.hash.replace(/^#/, "") || "home";
+  if (tab === "invest" && typeof window.renderInvestContent === "function") {
+    handleRouteChange();
+  }
+};
+
+window.cacheBust = cacheBust;
+window.blogAuthHeaders = blogAuthHeaders;
+window.fetchBlogAuthStatus = fetchBlogAuthStatus;
+window.loginBlog = loginBlog;
+window.escapeHtml = escapeHtml;

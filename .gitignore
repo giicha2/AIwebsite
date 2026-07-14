@@ -1,6 +1,8 @@
 # Secrets / runtime auth
 writable/blog-auth.json
 writable/blog-sessions.json
+writable/portfolio.json
+writable/posts.json
 
 # Synology Drive internals
 .SynologyWorkingDirectory/

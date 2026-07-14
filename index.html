@@ -1490,6 +1490,264 @@
         border-top: 1px solid var(--color-footer-border);
       }
 
+      .hero--invest h2 {
+        margin-bottom: 8px;
+      }
+
+      .invest-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+
+      .invest-login-card {
+        max-width: 420px;
+        margin-top: 20px;
+      }
+
+      .invest-total-btn {
+        min-width: 220px;
+        padding: 16px 18px;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: var(--color-form-bg);
+        color: var(--color-heading);
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+
+      .invest-total-btn:hover {
+        border-color: #38bdf8;
+        transform: translateY(-1px);
+      }
+
+      .invest-total-label,
+      .invest-total-hint {
+        display: block;
+        color: var(--color-faint);
+        font-size: 0.8rem;
+      }
+
+      .invest-total-btn strong {
+        display: block;
+        margin: 6px 0;
+        font-size: 1.45rem;
+      }
+
+      .invest-total-change {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.92rem;
+        font-weight: 600;
+      }
+
+      .invest-total-btn.is-up .invest-total-change {
+        color: #ef4444;
+      }
+
+      .invest-total-btn.is-down .invest-total-change {
+        color: #3b82f6;
+      }
+
+      .invest-history-panel {
+        margin-bottom: 24px;
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background: var(--color-form-bg);
+      }
+
+      .invest-history-panel[hidden] {
+        display: none;
+      }
+
+      .invest-range-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .invest-range-btn {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-surface);
+        color: var(--color-muted);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .invest-range-btn.is-active {
+        background: #0f172a;
+        border-color: #0f172a;
+        color: #fff;
+      }
+
+      .invest-line-wrap,
+      .invest-pie-wrap {
+        position: relative;
+        height: 260px;
+      }
+
+      .invest-layout {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .invest-chart-card,
+      .invest-side {
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background: var(--color-form-bg);
+      }
+
+      .invest-chart-card h3,
+      .invest-side h3,
+      .invest-add-form h3 {
+        margin: 0 0 14px;
+        font-size: 1.05rem;
+        color: var(--color-heading);
+      }
+
+      .invest-note,
+      .invest-help {
+        margin: 12px 0 0;
+        font-size: 0.82rem;
+        color: var(--color-faint);
+        line-height: 1.5;
+      }
+
+      .invest-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .invest-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+      }
+
+      .invest-item-main {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .invest-item-symbol,
+      .invest-item-meta {
+        font-size: 0.85rem;
+        color: var(--color-subtle);
+      }
+
+      .invest-item-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        align-items: center;
+        grid-column: 1 / -1;
+      }
+
+      .invest-item-meta strong {
+        color: var(--color-heading);
+      }
+
+      .invest-item-weight {
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--color-badge-bg);
+        color: var(--color-accent-text);
+        font-weight: 700;
+      }
+
+      .invest-delete-btn {
+        align-self: start;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #fecaca;
+        background: transparent;
+        color: #dc2626;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .invest-empty {
+        margin: 0;
+        padding: 18px;
+        border-radius: 10px;
+        border: 1px dashed var(--color-border-strong);
+        color: var(--color-subtle);
+        text-align: center;
+      }
+
+      .invest-add-form {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--color-border);
+      }
+
+      .invest-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .invest-form-grid label {
+        display: grid;
+        gap: 6px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--color-muted);
+      }
+
+      .invest-form-grid input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border-strong);
+        background: var(--color-input-bg);
+        color: var(--color-heading);
+        font: inherit;
+      }
+
+      .invest-submit {
+        margin-top: 12px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 8px;
+        background: #38bdf8;
+        color: #0f172a;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      @media (max-width: 800px) {
+        .invest-layout,
+        .invest-form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
       @media (max-width: 640px) {
         .header-inner {
           flex-direction: column;
@@ -1595,6 +1853,7 @@
             <li><a href="#" class="tab" data-tab="projects">프로젝트</a></li>
             <li><a href="#" class="tab" data-tab="gallery">갤러리</a></li>
             <li><a href="#" class="tab" data-tab="blog">개발일지</a></li>
+            <li><a href="#" class="tab" data-tab="invest">내 자산</a></li>
           </ul>
         </nav>
       </div>
@@ -1646,9 +1905,15 @@
     </footer>
 
     <script>
-      const script = document.createElement("script");
-      script.src = `hello.js?v=${Date.now()}`;
-      document.body.appendChild(script);
+      const bust = Date.now();
+      const hello = document.createElement("script");
+      hello.src = `hello.js?v=${bust}`;
+      hello.onload = () => {
+        const invest = document.createElement("script");
+        invest.src = `invest.js?v=${bust}`;
+        document.body.appendChild(invest);
+      };
+      document.body.appendChild(hello);
     </script>
   </body>
 </html>
