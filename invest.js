@@ -552,6 +552,8 @@
         hint.textContent = "";
         hint.className = "invest-quote-hint";
       }
+      const amountHangul = form.querySelector("#invest-amount-hangul");
+      if (amountHangul) amountHangul.textContent = "";
       return;
     }
 
