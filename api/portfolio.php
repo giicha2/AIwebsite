@@ -400,6 +400,7 @@ if ($method === "GET") {
                 "priceKrw" => $priceKrw,
                 "previousCloseKrw" => $priceKrw,
                 "usdKrw" => $usdKrw,
+                "source" => $quote["source"] ?? "yahoo",
             ],
             JSON_UNESCAPED_UNICODE
         );

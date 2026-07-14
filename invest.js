@@ -6,6 +6,50 @@
     return `${num.toLocaleString("ko-KR")}원`;
   }
 
+  /** 금액을 한글로 읽기: 123456789 → 일억 이천삼백사십오만 육천칠백팔십구 원 */
+  function formatKrwHangul(value) {
+    const amount = Math.round(Math.abs(Number(value) || 0));
+    if (!(amount > 0)) return "";
+
+    const digits = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+    const small = ["", "십", "백", "천"];
+    const big = ["", "만", "억", "조"];
+
+    const chunkToHangul = (n) => {
+      if (n <= 0) return "";
+      let s = "";
+      const str = String(n).padStart(4, "0");
+      for (let i = 0; i < 4; i++) {
+        const d = Number(str[i]);
+        if (!d) continue;
+        const unit = small[3 - i];
+        if (d === 1 && unit) {
+          s += unit;
+        } else {
+          s += digits[d] + unit;
+        }
+      }
+      return s;
+    };
+
+    let n = amount;
+    const parts = [];
+    let bigIdx = 0;
+
+    while (n > 0 && bigIdx < big.length) {
+      const chunk = n % 10000;
+      if (chunk > 0) {
+        parts.unshift(chunkToHangul(chunk) + big[bigIdx]);
+      }
+      n = Math.floor(n / 10000);
+      bigIdx += 1;
+    }
+
+    const body = parts.join(" ").replace(/\s+/g, " ").trim();
+    const prefix = Number(value) < 0 ? "마이너스 " : "";
+    return `${prefix}${body} 원`;
+  }
+
   function formatSignedKrw(value) {
     const num = Math.round(Number(value) || 0);
     const sign = num > 0 ? "+" : "";
@@ -309,6 +353,7 @@
     const costInput = form.querySelector("[name='costKrw']");
     const asCashInput = form.querySelector("[name='asCash']");
     const quoteHint = form.querySelector("#invest-quote-hint");
+    const amountHangul = form.querySelector("#invest-amount-hangul");
 
     let priceKrw = 0;
     let syncLock = false;
@@ -320,6 +365,12 @@
     const isCashMode = () => {
       const name = String(nameInput?.value || "").trim();
       return asCashInput?.value === "1" || /현금|기타/i.test(name);
+    };
+
+    const updateAmountHangul = () => {
+      if (!amountHangul) return;
+      const cost = Number(costInput?.value || 0);
+      amountHangul.textContent = cost > 0 ? formatKrwHangul(cost) : "";
     };
 
     const setHint = (text, isError = false) => {
@@ -336,6 +387,7 @@
         input.value = String(rounded);
       }
       syncLock = false;
+      if (input === costInput) updateAmountHangul();
     };
 
     const applySharesToCost = () => {
@@ -411,8 +463,10 @@
         }
 
         const unit = Math.round(priceKrw).toLocaleString("ko-KR");
-        setHint(`${quote.symbol} · 전일종가 ${unit}원`);
+        const source = quote.source ? ` · ${quote.source}` : "";
+        setHint(`${quote.symbol} · 전일종가 ${unit}원${source}`);
         syncFromLastEdit();
+        updateAmountHangul();
         return true;
       } catch (error) {
         if (requestId !== quoteRequestId) return false;
@@ -455,6 +509,7 @@
     costInput?.addEventListener("input", async () => {
       if (syncLock) return;
       lastEdited = "cost";
+      updateAmountHangul();
       if (!(priceKrw > 0)) await refreshQuote({ force: true });
       applyCostToShares();
     });
@@ -462,9 +517,12 @@
     costInput?.addEventListener("change", async () => {
       if (syncLock) return;
       lastEdited = "cost";
+      updateAmountHangul();
       await refreshQuote({ force: !(priceKrw > 0) });
       applyCostToShares();
     });
+
+    updateAmountHangul();
   }
 
   function setFormEditMode(form, holding) {
@@ -514,6 +572,11 @@
     if (costInput) {
       const cost = Number(holding.costKrw || holding.valueKrw || 0);
       costInput.value = cost > 0 ? String(Math.round(cost)) : "";
+    }
+    const amountHangul = form.querySelector("#invest-amount-hangul");
+    if (amountHangul) {
+      const cost = Number(costInput?.value || 0);
+      amountHangul.textContent = cost > 0 ? formatKrwHangul(cost) : "";
     }
     if (hint) {
       hint.textContent = "수량·금액 수정 후 ✓";
@@ -689,6 +752,7 @@
               <input name="costKrw" type="number" min="0" step="1" placeholder="금액" inputmode="numeric" />
               <button type="button" class="invest-add-cancel" id="invest-edit-cancel" hidden title="취소" aria-label="수정 취소">×</button>
             </div>
+            <p class="invest-amount-hangul" id="invest-amount-hangul" aria-live="polite"></p>
             <p class="invest-quote-hint" id="invest-quote-hint" aria-live="polite"></p>
             <p class="blog-status" id="invest-form-status" aria-live="polite"></p>
           </form>

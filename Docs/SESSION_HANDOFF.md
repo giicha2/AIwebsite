@@ -10,23 +10,23 @@
 |---|---|
 | **From** | PC |
 | **When** | 2026-07-14 |
-| **Commit context** | Compact + add bar for holdings |
+| **Commit context** | Hangul amount + quote fallback |
 
 ## Done
 
-- 종목 추가 UI: `+ | 종목 | 수량 | 금액` 한 줄 입력바로 단순화
-- 수량↔금액 전일종가 자동 환산 유지, 수정 시 ✓
+- 금액 입력 아래 한글 금액 표기 (일억 이천만 … 원)
+- 시세: Yahoo 봇 UA → 브라우저 UA, query1/query2 폴백
+- 국내주식(`.KS`/`.KQ`)은 네이버 시세 우선
 
 ## Next
 
-- Drive 동기화 후 `#invest` Ctrl+F5로 추가 바 UI 확인
+- Drive 동기화 후 종목 입력·시세 힌트·한글 금액 확인
 
 ## Watch out
 
+- NAS에서 Yahoo가 막히면 해외주식 시세가 실패할 수 있음 (국내는 네이버)
 - `writable/portfolio.json` / `blog-auth.json` 은 Git·배포에서 제외
-- 시세·심볼 검색은 NAS 외부망(Yahoo) 필요
 
 ## Notes
 
 - Origin: `https://github.com/giicha2/AIwebsite.git`
-- Windows 배포: `D:\WebWork\SynologyDrive\` 및 `MyWebsite\`

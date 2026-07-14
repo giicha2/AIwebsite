@@ -1,8 +1,14 @@
 <?php
 require_once __DIR__ . "/blog-auth-lib.php";
 
-function httpGetJson($url, $timeout = 12)
+function httpGetJson($url, $timeout = 14)
 {
+    $headers = [
+        "Accept: application/json,text/plain,*/*",
+        "Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    ];
+    $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
     if (function_exists("curl_init")) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -10,8 +16,10 @@ function httpGetJson($url, $timeout = 12)
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_CONNECTTIMEOUT => $timeout,
             CURLOPT_TIMEOUT => $timeout,
-            CURLOPT_USERAGENT => "Mozilla/5.0 (compatible; MyWebsitePortfolio/1.0)",
-            CURLOPT_HTTPHEADER => ["Accept: application/json"],
+            CURLOPT_USERAGENT => $ua,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_ENCODING => "",
         ]);
         $body = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -29,7 +37,7 @@ function httpGetJson($url, $timeout = 12)
         "http" => [
             "method" => "GET",
             "timeout" => $timeout,
-            "header" => "User-Agent: Mozilla/5.0 (compatible; MyWebsitePortfolio/1.0)\r\nAccept: application/json\r\n",
+            "header" => "User-Agent: {$ua}\r\n" . implode("\r\n", $headers) . "\r\n",
         ],
     ]);
     $body = @file_get_contents($url, false, $context);
@@ -51,7 +59,6 @@ function normalizeStockSymbol($symbol)
         return "";
     }
 
-    // Samsung Electronics common aliases
     if (in_array($symbol, ["삼성전자", "SAMSUNG", "005930"], true)) {
         return "005930.KS";
     }
@@ -112,8 +119,16 @@ function looksLikeTickerSymbol($symbol)
         return true;
     }
 
-    // Yahoo tickers: AAPL, BRK-B, ^GSPC, 005930.KS already handled
     return (bool) preg_match('/^[A-Z0-9][A-Z0-9.\-^]{0,14}$/', $symbol);
+}
+
+function parseKrwNumber($value)
+{
+    $raw = preg_replace('/[^\d.]/', '', (string) $value);
+    if ($raw === "" || $raw === null) {
+        return 0.0;
+    }
+    return (float) $raw;
 }
 
 function yahooSearchSymbol($query)
@@ -124,49 +139,54 @@ function yahooSearchSymbol($query)
         return null;
     }
 
-    $url = "https://query1.finance.yahoo.com/v1/finance/search?"
-        . http_build_query([
-            "q" => $query,
-            "quotesCount" => 8,
-            "newsCount" => 0,
-            "listsCount" => 0,
-        ]);
+    foreach (["query1", "query2"] as $host) {
+        $url = "https://{$host}.finance.yahoo.com/v1/finance/search?"
+            . http_build_query([
+                "q" => $query,
+                "quotesCount" => 8,
+                "newsCount" => 0,
+                "listsCount" => 0,
+            ]);
 
-    $data = httpGetJson($url);
+        $data = httpGetJson($url);
 
-    if (!$data || empty($data["quotes"]) || !is_array($data["quotes"])) {
-        return null;
-    }
-
-    $preferred = null;
-
-    foreach ($data["quotes"] as $quote) {
-        if (!is_array($quote)) {
+        if (!$data || empty($data["quotes"]) || !is_array($data["quotes"])) {
             continue;
         }
 
-        $type = strtoupper((string) ($quote["quoteType"] ?? ""));
-        $symbol = trim((string) ($quote["symbol"] ?? ""));
+        $preferred = null;
 
-        if ($symbol === "" || in_array($type, ["OPTION", "FUTURE", "CURRENCY", "CRYPTOCURRENCY"], true)) {
-            continue;
+        foreach ($data["quotes"] as $quote) {
+            if (!is_array($quote)) {
+                continue;
+            }
+
+            $type = strtoupper((string) ($quote["quoteType"] ?? ""));
+            $symbol = trim((string) ($quote["symbol"] ?? ""));
+
+            if ($symbol === "" || in_array($type, ["OPTION", "FUTURE", "CURRENCY", "CRYPTOCURRENCY"], true)) {
+                continue;
+            }
+
+            if ($type === "EQUITY" || $type === "ETF") {
+                return normalizeStockSymbol($symbol);
+            }
+
+            if ($preferred === null) {
+                $preferred = normalizeStockSymbol($symbol);
+            }
         }
 
-        if ($type === "EQUITY" || $type === "ETF") {
-            return normalizeStockSymbol($symbol);
-        }
-
-        if ($preferred === null) {
-            $preferred = normalizeStockSymbol($symbol);
+        if ($preferred) {
+            return $preferred;
         }
     }
 
-    return $preferred;
+    return null;
 }
 
 /**
- * Resolve a user-entered name or ticker into a Yahoo symbol.
- * Accepts "테슬라", "TSLA", "005930", "삼성전자" etc.
+ * Resolve a user-entered name or ticker into a Yahoo/Naver symbol.
  */
 function resolveStockSymbolFromQuery($query)
 {
@@ -181,7 +201,6 @@ function resolveStockSymbolFromQuery($query)
         ? mb_strtoupper($query, "UTF-8")
         : strtoupper($query);
 
-    // Direct alias (Korean keys as-is + uppercased latin)
     if (isset($aliases[$query])) {
         return normalizeStockSymbol($aliases[$query]);
     }
@@ -197,16 +216,12 @@ function resolveStockSymbolFromQuery($query)
 
     $normalized = normalizeStockSymbol($query);
 
-    if (looksLikeTickerSymbol($normalized)) {
-        // Prefer verifying known aliases already applied by normalize
-        $probe = fetchStockQuote($normalized);
-        if ($probe && !empty($probe["ok"])) {
-            return $normalized;
-        }
-        // Still return ticker-like input; caller may accept cost fallback
-        if (preg_match('/^\d{6}\.(KS|KQ)$/', $normalized) || preg_match('/^[A-Z]{1,5}(-[A-Z])?$/', $normalized)) {
-            return $normalized;
-        }
+    if (
+        preg_match('/^\d{6}\.(KS|KQ)$/', $normalized)
+        || preg_match('/^[A-Z]{1,5}(-[A-Z])?$/', $normalized)
+        || preg_match('/^[A-Z0-9]{1,5}\.(KS|KQ)$/', $normalized)
+    ) {
+        return $normalized;
     }
 
     $searched = yahooSearchSymbol($query);
@@ -223,12 +238,19 @@ function resolveStockSymbolFromQuery($query)
 
 function fetchYahooChart($symbol, $range = "5d", $interval = "1d")
 {
-    $symbol = rawurlencode($symbol);
+    $encoded = rawurlencode($symbol);
     $range = rawurlencode($range);
     $interval = rawurlencode($interval);
-    $url = "https://query1.finance.yahoo.com/v8/finance/chart/{$symbol}?range={$range}&interval={$interval}";
 
-    return httpGetJson($url);
+    foreach (["query1", "query2"] as $host) {
+        $url = "https://{$host}.finance.yahoo.com/v8/finance/chart/{$encoded}?range={$range}&interval={$interval}";
+        $data = httpGetJson($url);
+        if (is_array($data) && !empty($data["chart"]["result"][0])) {
+            return $data;
+        }
+    }
+
+    return null;
 }
 
 function extractQuoteFromChart($chart)
@@ -283,6 +305,51 @@ function extractQuoteFromChart($chart)
         "shortName" => (string) ($meta["shortName"] ?? $meta["longName"] ?? ""),
         "timestamps" => $timestamps,
         "closes" => $closes,
+        "source" => "yahoo",
+    ];
+}
+
+function fetchNaverKrQuote($symbol)
+{
+    if (preg_match('/^(\d{6})\.(KS|KQ)$/', strtoupper((string) $symbol), $m)) {
+        $code = $m[1];
+        $suffix = $m[2];
+    } elseif (preg_match('/^(\d{6})$/', (string) $symbol, $m2)) {
+        $code = $m2[1];
+        $suffix = "KS";
+    } else {
+        return null;
+    }
+
+    $url = "https://m.stock.naver.com/api/stock/{$code}/basic";
+    $data = httpGetJson($url);
+
+    if (!is_array($data)) {
+        return null;
+    }
+
+    $close = parseKrwNumber($data["closePrice"] ?? 0);
+    if (!($close > 0)) {
+        return null;
+    }
+
+    $change = parseKrwNumber($data["compareToPreviousClosePrice"] ?? 0);
+    $prevClose = $close - $change;
+    if (!($prevClose > 0)) {
+        $prevClose = $close;
+    }
+
+    $price = $prevClose > 0 ? $prevClose : $close;
+
+    return [
+        "symbol" => $code . "." . $suffix,
+        "currency" => "KRW",
+        "exchange" => (string) ($data["stockExchangeName"] ?? "KRX"),
+        "price" => $price,
+        "previousClose" => $prevClose,
+        "regularMarketPrice" => $close,
+        "shortName" => (string) ($data["stockName"] ?? ""),
+        "source" => "naver",
     ];
 }
 
@@ -306,25 +373,43 @@ function fetchStockQuote($symbol)
         return null;
     }
 
+    // Korean tickers: Naver first (more reliable from KR NAS), Yahoo second.
+    if (preg_match('/^\d{6}\.(KS|KQ)$/', $symbol)) {
+        $naver = fetchNaverKrQuote($symbol);
+        if ($naver && $naver["price"] > 0) {
+            return [
+                "symbol" => $naver["symbol"],
+                "ok" => true,
+                "currency" => "KRW",
+                "exchange" => $naver["exchange"],
+                "price" => $naver["price"],
+                "previousClose" => $naver["previousClose"],
+                "name" => $naver["shortName"],
+                "source" => "naver",
+            ];
+        }
+    }
+
     $chart = fetchYahooChart($symbol, "5d", "1d");
     $quote = $chart ? extractQuoteFromChart($chart) : null;
 
-    if (!$quote || !($quote["price"] > 0)) {
+    if ($quote && $quote["price"] > 0) {
         return [
-            "symbol" => $symbol,
-            "ok" => false,
-            "error" => "시세를 가져오지 못했습니다.",
+            "symbol" => $quote["symbol"] !== "" ? $quote["symbol"] : $symbol,
+            "ok" => true,
+            "currency" => $quote["currency"],
+            "exchange" => $quote["exchange"],
+            "price" => $quote["price"],
+            "previousClose" => $quote["previousClose"],
+            "name" => $quote["shortName"],
+            "source" => "yahoo",
         ];
     }
 
     return [
-        "symbol" => $quote["symbol"] !== "" ? $quote["symbol"] : $symbol,
-        "ok" => true,
-        "currency" => $quote["currency"],
-        "exchange" => $quote["exchange"],
-        "price" => $quote["price"],
-        "previousClose" => $quote["previousClose"],
-        "name" => $quote["shortName"],
+        "symbol" => $symbol,
+        "ok" => false,
+        "error" => "시세를 가져오지 못했습니다. (Yahoo/Naver 응답 없음)",
     ];
 }
 
