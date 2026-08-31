@@ -28,6 +28,12 @@ const contents = {
     paragraphs: ["로그인 후 나만의 투자 비율과 평가금액을 확인합니다."],
     dynamic: "invest",
   },
+  retire: {
+    badge: "노후계획",
+    title: "생애 노후계획",
+    paragraphs: ["로그인 후 노후 시뮬레이션을 봅니다."],
+    dynamic: "retire",
+  },
   about: {
     badge: "소개",
     title: "1인개발TV는",
@@ -152,7 +158,7 @@ function parseHashRoute() {
   return { tab: hash || "home", projectId: null };
 }
 
-const navTabs = ["home", "projects", "gallery", "blog", "invest"];
+const navTabs = ["home", "projects", "gallery", "blog", "invest", "retire"];
 
 function setActiveTab(tab) {
   document.querySelectorAll(".tab").forEach((item) => {
@@ -1471,6 +1477,15 @@ async function renderDynamicContent(tab, data) {
     return;
   }
 
+  if (data.dynamic === "retire") {
+    if (typeof window.renderRetireContent === "function") {
+      await window.renderRetireContent();
+    } else {
+      content.innerHTML = `<p class="blog-status error">retire.js를 불러오지 못했습니다.</p>`;
+    }
+    return;
+  }
+
   if (data.dynamic === "projects") {
     const route = parseHashRoute();
 
@@ -1805,7 +1820,7 @@ function initWidgets() {
 
 if (!location.hash) {
   location.hash = "home";
-} else if (location.hash.replace(/^#/, "") !== "invest") {
+} else if (!["invest", "retire"].includes(location.hash.replace(/^#/, ""))) {
   handleRouteChange();
 }
 
@@ -1817,6 +1832,8 @@ window.__helloReady = true;
 window.__retryRouteIfNeeded = function retryRouteIfNeeded() {
   const tab = location.hash.replace(/^#/, "") || "home";
   if (tab === "invest" && typeof window.renderInvestContent === "function") {
+    handleRouteChange();
+  } else if (tab === "retire" && typeof window.renderRetireContent === "function") {
     handleRouteChange();
   }
 };
