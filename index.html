@@ -2255,6 +2255,15 @@
           min-height: 320px;
         }
       }
+
+      .retire-headline { font-size: 1.15rem; margin: 0.5rem 0 0; }
+      .retire-compare { display:flex; gap:8px; flex-wrap:wrap; margin: 12px 0; }
+      .retire-compare .invest-range-btn span { font-size: 0.85rem; }
+      .retire-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px; }
+      .retire-grid label { display:flex; flex-direction:column; gap:4px; font-size:0.9rem; }
+      .retire-grid input { padding:8px; border-radius:8px; border:1px solid rgba(148,163,184,.35); background:inherit; color:inherit; }
+      .retire-checks { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+      .retire-chart-wrap { margin: 12px 0 20px; }
     </style>
   </head>
   <body>
@@ -2297,6 +2306,7 @@
             <li><a href="#" class="tab" data-tab="gallery">갤러리</a></li>
             <li><a href="#" class="tab" data-tab="blog">개발일지</a></li>
             <li><a href="#" class="tab" data-tab="invest">내 자산</a></li>
+            <li><a href="#" class="tab" data-tab="retire">노후계획</a></li>
           </ul>
         </nav>
       </div>
@@ -2345,6 +2355,11 @@
       hello.onload = () => {
         const invest = document.createElement("script");
         invest.src = `invest.js?v=${bust}`;
+        invest.onload = () => {
+          const retire = document.createElement("script");
+          retire.src = `retire.js?v=${bust}`;
+          document.body.appendChild(retire);
+        };
         document.body.appendChild(invest);
       };
       document.body.appendChild(hello);
