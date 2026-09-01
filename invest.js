@@ -127,11 +127,23 @@
     }
   }
 
+
+  function investSubtabsHtml(active) {
+    const hold = active === "holdings" ? " is-active" : "";
+    const ret = active === "retire" ? " is-active" : "";
+    return `
+      <nav class="invest-subtabs" aria-label="내 자산 메뉴">
+        <a href="#invest" class="invest-subtab${hold}">보유</a>
+        <a href="#retire" class="invest-subtab${ret}">노후계획</a>
+      </nav>`;
+  }
+
   function renderLoginGate(content) {
     content.className = "hero hero--invest";
     content.innerHTML = `
       <span class="badge">내 자산</span>
       <h2>나만의 투자 현황</h2>
+      ${investSubtabsHtml("holdings")}
       <p>로그인 후에만 볼 수 있는 개인 페이지입니다.</p>
       <div class="invest-login-card">
         <form class="blog-login-form" id="invest-login-form">
@@ -1181,6 +1193,7 @@
           <h2>투자 현황</h2>
         </div>
       </div>
+      ${investSubtabsHtml("holdings")}
 
       <div class="invest-layout invest-layout--stack">
         <section class="invest-chart-card">
@@ -1267,6 +1280,7 @@
     content.innerHTML = `
       <span class="badge">내 자산</span>
       <h2>투자 현황</h2>
+      ${investSubtabsHtml("holdings")}
       <p class="media-loading">불러오는 중...</p>
     `;
 
@@ -1290,12 +1304,14 @@
       content.innerHTML = `
         <span class="badge">내 자산</span>
         <h2>투자 현황</h2>
+        ${investSubtabsHtml("holdings")}
         <p class="blog-status error">${window.escapeHtml?.(error.message) || error.message}</p>
         <p>로컬에서는 PHP API와 외부 시세 호출이 필요합니다. NAS에 배포된 주소로 확인해 주세요.</p>
       `;
     }
   }
 
+  window.investSubtabsHtml = investSubtabsHtml;
   window.renderInvestContent = renderInvestContent;
 
   if (typeof window.__retryRouteIfNeeded === "function") {
