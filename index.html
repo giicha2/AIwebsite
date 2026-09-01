@@ -1874,6 +1874,60 @@
         color: #38bdf8;
       }
 
+      .invest-spark {
+        position: fixed;
+        z-index: 40;
+        width: min(340px, 92vw);
+        background: var(--color-surface, #0f172a);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        padding: 10px 12px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      }
+
+      .invest-spark[hidden] {
+        display: none !important;
+      }
+
+      .invest-spark-title {
+        margin: 0 0 8px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--color-heading, #e2e8f0);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .invest-spark .invest-range-tabs {
+        margin-bottom: 8px;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .invest-spark .invest-range-btn {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+      }
+
+      .invest-spark-canvas-wrap {
+        position: relative;
+        height: 120px;
+      }
+
+      .invest-spark-canvas-wrap canvas {
+        display: block;
+        width: 100% !important;
+        height: 120px !important;
+      }
+
+      .invest-spark-status {
+        margin: 6px 0 0;
+        min-height: 1em;
+        font-size: 0.75rem;
+        color: var(--color-muted, #94a3b8);
+      }
+
       @media (min-width: 801px) {
         .invest-item {
           grid-template-columns: 32px minmax(0, 1.1fr) minmax(0, 1.4fr) auto auto auto;
