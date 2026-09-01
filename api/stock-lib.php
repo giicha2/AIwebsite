@@ -817,7 +817,7 @@ function fetchStockQuote($symbol)
     ];
 }
 
-function fetchStockHistory($symbol, $range = "1mo")
+function fetchStockHistory($symbol, $range = "1mo", $interval = "1d")
 {
     $symbol = normalizeStockSymbol($symbol);
 
@@ -825,7 +825,7 @@ function fetchStockHistory($symbol, $range = "1mo")
         return [];
     }
 
-    $chart = fetchYahooChart($symbol, $range, "1d");
+    $chart = fetchYahooChart($symbol, $range, $interval);
     $quote = $chart ? extractQuoteFromChart($chart) : null;
 
     if (!$quote) {
@@ -835,14 +835,25 @@ function fetchStockHistory($symbol, $range = "1mo")
     $points = [];
     $timestamps = $quote["timestamps"];
     $closes = $quote["closes"];
+    $tzName = (string) ($chart["chart"]["result"][0]["meta"]["timezone"] ?? "UTC");
+    try {
+        $tz = new DateTimeZone($tzName !== "" ? $tzName : "UTC");
+    } catch (Exception $e) {
+        $tz = new DateTimeZone("UTC");
+    }
+
+    $intraday = !in_array($interval, ["1d", "1wk", "1w", "1mo"], true);
+    $fmt = $intraday ? "Y-m-d H:i" : "Y-m-d";
 
     foreach ($timestamps as $i => $ts) {
         if (!isset($closes[$i]) || $closes[$i] === null) {
             continue;
         }
 
+        $dt = new DateTime("@" . (int) $ts);
+        $dt->setTimezone($tz);
         $points[] = [
-            "date" => gmdate("Y-m-d", (int) $ts),
+            "date" => $dt->format($fmt),
             "close" => (float) $closes[$i],
         ];
     }
