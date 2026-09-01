@@ -8,6 +8,8 @@
   const WIFE_PREM_UNTIL = 2042 * 100 + 7;
   const USER_NPS_FROM = 2040 * 100 + 7;
   const WIFE_NPS_FROM = 2042 * 100 + 7;
+  const USER_55 = 2030 * 100 + 7;
+  const HANKUK_PAY_MONTHS = 20 * 12;
   const CAR_YM = 2027 * 100 + 7;
   const PRESETS = [0, 3, 5, 7];
 
@@ -66,17 +68,27 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
   }
 
+  function hankukPrincipal(plan) {
+    if (!plan.includeHankuk) return 0;
+    return (Number(plan.irp) || 0) + (Number(plan.isa) || 0) + (Number(plan.pnsSave) || 0);
+  }
+
   function spendableOf(plan, securities) {
-    const hankuk = plan.includeHankuk
-      ? (Number(plan.irp) || 0) + (Number(plan.isa) || 0) + (Number(plan.pnsSave) || 0)
-      : 0;
     const house = plan.includeHouse ? Number(plan.house) || 0 : 0;
-    return Math.max(0, (Number(securities) || 0) + hankuk + house);
+    return Math.max(0, (Number(securities) || 0) + house);
+  }
+
+  function monthlyAnnuity(principal, monthlyRate, n) {
+    if (!(principal > 0) || n <= 0) return 0;
+    if (!(monthlyRate > 0)) return principal / n;
+    const g = Math.pow(1 + monthlyRate, n);
+    return principal * monthlyRate * g / (g - 1);
   }
 
   function simulate(plan, securities) {
     const r = (Number(plan.returnPct) || 0) / 100;
     const monthlyReturn = 1 + r / 12;
+    const monthlyRate = r / 12;
     const living = Number(plan.living) || 0;
     const education = Number(plan.education) || 0;
     const jongsin = Number(plan.jongsin) || 0;
@@ -85,21 +97,46 @@
     const wifeNps = Number(plan.wifeNps) || 0;
     const car = Number(plan.car) || 0;
     let assets = spendableOf(plan, securities);
+    let hankuk = hankukPrincipal(plan);
+    let hankukPay = 0;
+    let hankukLeft = HANKUK_PAY_MONTHS;
     let year = START_YEAR;
     let month = START_MONTH;
     const points = [];
 
     for (let i = 0; i < MAX_MONTHS; i += 1) {
       assets *= monthlyReturn;
-      assets -= living + education;
+      if (hankuk > 0) hankuk *= monthlyReturn;
       const ym = ymNum(year, month);
+
+      let pensionIn = 0;
+      if (ym >= USER_55 && hankukLeft > 0) {
+        if (hankukPay === 0 && hankuk > 0) {
+          hankukPay = monthlyAnnuity(hankuk, monthlyRate, hankukLeft);
+        }
+        const pay = Math.min(hankuk, hankukPay);
+        if (pay > 0) {
+          hankuk -= pay;
+          assets += pay;
+          pensionIn += pay;
+          hankukLeft -= 1;
+        }
+      }
+      if (ym >= USER_NPS_FROM) {
+        assets += userNps;
+        pensionIn += userNps;
+      }
+      if (ym >= WIFE_NPS_FROM) {
+        assets += wifeNps;
+        pensionIn += wifeNps;
+      }
+
+      assets -= living + education;
       if (ym <= JONGSIN_UNTIL) assets -= jongsin;
       if (ym <= WIFE_PREM_UNTIL) assets -= wifePrem;
-      if (ym >= USER_NPS_FROM) assets += userNps;
-      if (ym >= WIFE_NPS_FROM) assets += wifeNps;
       if (plan.includeCar && ym === CAR_YM) assets -= car;
 
-      points.push({ year: year, month: month, remaining: assets });
+      points.push({ year: year, month: month, remaining: assets, pensionIn: pensionIn });
       if (assets <= 0) break;
 
       month += 1;
@@ -247,9 +284,11 @@
       : 0;
     const house = plan.includeHouse ? Number(plan.house) || 0 : 0;
     const parts = ["증권 " + formatKrw(securities)];
-    if (plan.includeHankuk) parts.push("연금·ISA " + formatKrw(hankuk));
     if (plan.includeHouse) parts.push("집 " + formatKrw(house));
-    return parts.join(" + ") + " = " + formatKrw(total);
+    const extra = plan.includeHankuk
+      ? " · 한투 " + formatKrw(hankuk) + "은 55세(2030.7)부터 20년 분할"
+      : "";
+    return parts.join(" + ") + " = " + formatKrw(total) + extra;
   }
 
   async function drawLine(points) {
@@ -308,10 +347,14 @@
             callbacks: {
               label: function (context) {
                 const eok = Number(context.raw || 0);
-                return eok.toLocaleString("ko-KR", {
+                const pt = points[context.dataIndex] || {};
+                const pay = Number(pt.pensionIn) || 0;
+                const line = eok.toLocaleString("ko-KR", {
                   minimumFractionDigits: 1,
                   maximumFractionDigits: 2,
                 }) + "억 원";
+                if (pay > 0) return [line, "이달 연금 +" + formatKrw(pay)];
+                return line;
               },
             },
           },
@@ -347,7 +390,14 @@
       savePlan(state.plan);
       applySimToDom(state.plan, state.securities, simulate(state.plan, state.securities));
     }
-    if (form) form.addEventListener("change", persistAndRefresh);
+    if (form) {
+      let timer = null;
+      form.addEventListener("input", function () {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(persistAndRefresh, 120);
+      });
+      form.addEventListener("change", persistAndRefresh);
+    }
     document.querySelectorAll("[data-retire-preset]").forEach(function (button) {
       button.addEventListener("click", function () {
         const pct = Number(button.dataset.retirePreset);
@@ -410,9 +460,9 @@
       field("월 교육비", "education", plan.education, "10000") +
       field("집 시세", "house", plan.house, "1000000") +
       field("차량 교체(2027.7)", "car", plan.car, "1000000") +
-      field("IRP", "irp", plan.irp, "1") +
-      field("ISA", "isa", plan.isa, "1") +
-      field("연금저축", "pnsSave", plan.pnsSave, "1") +
+      field("IRP (55세부터 분할)", "irp", plan.irp, "1") +
+      field("ISA (55세부터 분할)", "isa", plan.isa, "1") +
+      field("연금저축 (55세부터 분할)", "pnsSave", plan.pnsSave, "1") +
       "<label>기대 수익률(%)" +
       '<input name="returnPct" type="number" step="0.1" value="' + String(plan.returnPct) +
       '" inputmode="decimal" /></label>' +
@@ -420,7 +470,7 @@
       '<div class="retire-checks">' +
       "<label><input name=\"includeHankuk\" type=\"checkbox\"" +
       (plan.includeHankuk ? " checked" : "") +
-      " /> 한국투자 IRP·ISA·연금저축 포함</label>" +
+      " /> 한국투자 IRP·ISA·연금저축 포함 (55세부터 20년 분할)</label>" +
       "<label><input name=\"includeHouse\" type=\"checkbox\"" +
       (plan.includeHouse ? " checked" : "") +
       " /> 집 시세 포함 (기본 제외)</label>" +
@@ -428,7 +478,7 @@
       (plan.includeCar ? " checked" : "") +
       " /> 2027년 7월 차량 교체 지출</label>" +
       "</div></form>" +
-      '<p class="invest-help">집은 기본으로 원금 제외합니다. 저축보험 만기, 본인 1975 · 아내 1977 · 중3 딸 · 분당 구미동 34평 기준입니다. 입력값은 이 브라우저에만 저장됩니다.</p>';
+      '<p class="invest-help">아래 숫자를 바꾸면 그래프가 바로 바뀝니다. IRP·ISA·연금저축은 55세(2030년 7월)부터 20년간 나눠 받고, 본인 국민연금은 65세(2040.7), 배우자 국민연금은 65세(2042.7)부터입니다. 집은 기본으로 원금 제외. 입력값은 이 브라우저에만 저장됩니다.</p>';
     bindRetireUi(state);
     await drawLine(sim.points);
   }
