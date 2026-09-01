@@ -201,7 +201,7 @@
     content.className = "hero hero--invest";
     content.innerHTML = `
       <span class="badge">내 자산</span>
-      <h2>생애 노후계획</h2>
+      <h2>자산계획</h2>
       ${window.investSubtabsHtml ? window.investSubtabsHtml("retire") : ""}
       <p>로그인 후에만 볼 수 있는 개인 페이지입니다.</p>
       <div class="invest-login-card">
@@ -285,9 +285,13 @@
     const house = plan.includeHouse ? Number(plan.house) || 0 : 0;
     const parts = ["증권 " + formatKrw(securities)];
     if (plan.includeHouse) parts.push("집 " + formatKrw(house));
-    const extra = plan.includeHankuk
-      ? " · 한투 " + formatKrw(hankuk) + "은 55세(2030.7)부터 20년 분할"
-      : "";
+    const nps = (Number(plan.userNps) || 0) + (Number(plan.wifeNps) || 0);
+    const r = (Number(plan.returnPct) || 0) / 100;
+    const hankukMo = plan.includeHankuk ? monthlyAnnuity(hankuk, r / 12, HANKUK_PAY_MONTHS) : 0;
+    let extra = " · 국민연금 월 " + formatKrw(nps);
+    if (plan.includeHankuk) {
+      extra += " · 한투 55세부터 월 약 " + formatKrw(hankukMo);
+    }
     return parts.join(" + ") + " = " + formatKrw(total) + extra;
   }
 
@@ -434,7 +438,7 @@
     content.innerHTML =
       '<div class="invest-header"><div>' +
       '<span class="badge">내 자산</span>' +
-      "<h2>생애 노후계획</h2>" +
+      "<h2>자산계획</h2>" +
       "<p>증권·연금으로 생활비가 언제까지 버티는지 봅니다. 숫자는 바로 고칠 수 있어요.</p>" +
       "</div></div>" +
       (window.investSubtabsHtml ? window.investSubtabsHtml("retire") : "") +
@@ -492,7 +496,7 @@
     content.className = "hero hero--invest";
     content.innerHTML =
       '<span class="badge">내 자산</span>' +
-      "<h2>생애 노후계획</h2>" +
+      "<h2>자산계획</h2>" +
       (window.investSubtabsHtml ? window.investSubtabsHtml("retire") : "") +
       '<p class="media-loading">불러오는 중...</p>';
 
@@ -522,7 +526,7 @@
       const msg = (window.escapeHtml && window.escapeHtml(error.message)) || error.message;
       content.innerHTML =
         '<span class="badge">내 자산</span>' +
-        "<h2>생애 노후계획</h2>" +
+        "<h2>자산계획</h2>" +
         (window.investSubtabsHtml ? window.investSubtabsHtml("retire") : "") +
         '<p class="blog-status error">' + msg + "</p>" +
         "<p>로컬에서는 PHP API가 필요합니다. NAS에 배포된 주소로 확인해 주세요.</p>";
