@@ -134,7 +134,7 @@
     return `
       <nav class="invest-subtabs" aria-label="내 자산 메뉴">
         <a href="#invest" class="invest-subtab${hold}">보유</a>
-        <a href="#retire" class="invest-subtab${ret}">노후계획</a>
+        <a href="#retire" class="invest-subtab${ret}">자산계획</a>
       </nav>`;
   }
 
