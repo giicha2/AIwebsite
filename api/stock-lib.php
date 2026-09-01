@@ -118,7 +118,7 @@ function httpGetJson($url, $timeout = 12)
         }
     }
 
-    if ($curlBin && function_exists("shell_exec") && !preg_match('/[;&|`$<>]/', $url)) {
+    if ($curlBin && function_exists("shell_exec") && !preg_match('/[;|`$<>\n\r]/', $url)) {
         $cmd = escapeshellarg($curlBin)
             . " -sS -L --max-time " . (int) $timeout
             . " -A " . escapeshellarg($ua)
