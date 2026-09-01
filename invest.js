@@ -194,7 +194,15 @@
               : item.quoteError || "시세 갱신 실패";
             const isCash = item.symbol === "CASH";
             const logo = String(item.logoUrl || "").trim();
-            const initial = (item.name || item.symbol || "?").trim().charAt(0);
+            const symbol = String(item.symbol || "");
+            const rawName = String(item.name || "");
+            let shownName = rawName;
+            if (symbol && symbol !== "CASH") {
+              const wrapped = " (" + symbol + ")";
+              if (shownName.endsWith(wrapped)) shownName = shownName.slice(0, -wrapped.length).trim();
+              else if (shownName.endsWith("(" + symbol + ")")) shownName = shownName.slice(0, -(("(" + symbol + ")").length)).trim();
+            }
+            const initial = (shownName || item.symbol || "?").trim().charAt(0);
             const logoHtml = isCash
               ? `<span class="invest-item-logo invest-item-logo--cash" aria-hidden="true">₩</span>`
               : logo
@@ -216,7 +224,7 @@
               <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
                 ${logoHtml}
                 <div class="invest-item-main">
-                  <strong>${window.escapeHtml?.(item.name) || item.name}</strong>
+                  <strong>${window.escapeHtml?.(shownName) || shownName}</strong>
                   <span class="invest-item-symbol">${window.escapeHtml?.(item.symbol) || item.symbol}</span>
                 </div>
                 <div class="invest-item-quote">${isCash ? quoteNote : `${Number(item.shares).toLocaleString("ko-KR")}주 · ${quoteNote}`}</div>
