@@ -29,8 +29,8 @@ const contents = {
     dynamic: "invest",
   },
   retire: {
-    badge: "노후계획",
-    title: "생애 노후계획",
+    badge: "자산계획",
+    title: "자산계획",
     paragraphs: ["로그인 후 노후 시뮬레이션을 봅니다."],
     dynamic: "retire",
   },
