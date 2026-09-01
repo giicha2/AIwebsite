@@ -459,8 +459,18 @@ function resolveStockSymbolFromQuery($query)
     return "";
 }
 
+function yahooTransportAvailable()
+{
+    return function_exists("curl_init") || extension_loaded("openssl");
+}
+
 function fetchYahooChart($symbol, $range = "5d", $interval = "1d")
 {
+    if (!yahooTransportAvailable()) {
+        $GLOBALS["HTTP_LAST_ERROR"] = "yahoo skipped: no curl/openssl";
+        return null;
+    }
+
     $encoded = rawurlencode($symbol);
     $range = rawurlencode($range);
     $interval = rawurlencode($interval);
@@ -705,17 +715,6 @@ function guessNaverWorldCodes($symbol)
 
 function fetchUsdKrwQuote()
 {
-    // Prefer Naver FX page APIs are unstable; try Yahoo then open.er-api.
-    $chart = fetchYahooChart("KRW=X", "5d", "1d");
-    $quote = $chart ? extractQuoteFromChart($chart) : null;
-
-    if ($quote && $quote["price"] > 0) {
-        return [
-            "rate" => (float) $quote["price"],
-            "source" => "yahoo",
-        ];
-    }
-
     $data = httpGetJson("https://open.er-api.com/v6/latest/USD");
     if (is_array($data) && isset($data["rates"]["KRW"]) && (float) $data["rates"]["KRW"] > 0) {
         return [
@@ -817,12 +816,123 @@ function fetchStockQuote($symbol)
     ];
 }
 
+function fetchNaverPriceRows($url)
+{
+    $data = httpGetJson($url);
+    if (!is_array($data)) {
+        return [];
+    }
+    if (isset($data[0]) && is_array($data[0]) && isset($data[0]["localTradedAt"])) {
+        return $data;
+    }
+    foreach (["prices", "price", "result"] as $key) {
+        $rows = $data[$key] ?? null;
+        if (is_array($rows) && isset($rows[0]["localTradedAt"])) {
+            return $rows;
+        }
+    }
+    return [];
+}
+
+function fetchNaverHistory($symbol, $range = "1mo")
+{
+    $symbol = normalizeStockSymbol($symbol);
+    if ($symbol === "") {
+        return [];
+    }
+
+    $needMap = [
+        "1d" => 8,
+        "5d" => 8,
+        "1mo" => 32,
+        "3mo" => 70,
+        "1y" => 260,
+        "2y" => 520,
+        "3y" => 160,
+        "5y" => 260,
+    ];
+    $need = $needMap[$range] ?? 32;
+    $pageSize = $range === "1d" || $range === "5d" || $range === "1mo" ? 40 : 60;
+    $maxPages = (int) max(1, min(5, (int) ceil($need / $pageSize)));
+
+    $code6 = "";
+    $reuters = "";
+    if (preg_match('/^(\d{6})\.(KS|KQ)$/', $symbol, $m)) {
+        $code6 = $m[1];
+    } else {
+        $searched = naverSearchStock($symbol);
+        if ($searched && ($searched["market"] ?? "") === "domestic") {
+            $code6 = preg_replace('/\D/', "", (string) ($searched["reutersCode"] ?? $searched["symbol"] ?? ""));
+        } elseif ($searched && !empty($searched["reutersCode"])) {
+            $reuters = (string) $searched["reutersCode"];
+        } else {
+            $guesses = guessNaverWorldCodes($symbol);
+            $reuters = (string) ($guesses[0] ?? "");
+        }
+    }
+
+    $rows = [];
+    for ($page = 1; $page <= $maxPages; $page++) {
+        if ($code6 !== "") {
+            $url = "https://m.stock.naver.com/api/stock/{$code6}/price?" . http_build_query([
+                "pageSize" => $pageSize,
+                "page" => $page,
+            ]);
+        } elseif ($reuters !== "") {
+            $url = "https://api.stock.naver.com/stock/" . rawurlencode($reuters) . "/price?" . http_build_query([
+                "pageSize" => $pageSize,
+                "page" => $page,
+            ]);
+        } else {
+            break;
+        }
+
+        $chunk = fetchNaverPriceRows($url);
+        if (!$chunk) {
+            break;
+        }
+        foreach ($chunk as $row) {
+            $rows[] = $row;
+        }
+        if (count($chunk) < $pageSize || count($rows) >= $need) {
+            break;
+        }
+    }
+
+    $points = [];
+    $seen = [];
+    for ($i = count($rows) - 1; $i >= 0; $i--) {
+        $row = $rows[$i];
+        $close = parseKrwNumber($row["closePrice"] ?? 0);
+        $dateRaw = (string) ($row["localTradedAt"] ?? "");
+        if (!($close > 0) || $dateRaw === "") {
+            continue;
+        }
+        $date = substr($dateRaw, 0, 10);
+        if (isset($seen[$date])) {
+            continue;
+        }
+        $seen[$date] = true;
+        $points[] = [
+            "date" => $date,
+            "close" => (float) $close,
+        ];
+    }
+
+    return $points;
+}
+
 function fetchStockHistory($symbol, $range = "1mo", $interval = "1d")
 {
     $symbol = normalizeStockSymbol($symbol);
 
     if ($symbol === "") {
         return [];
+    }
+
+    $naver = fetchNaverHistory($symbol, $range);
+    if (count($naver) > 0) {
+        return $naver;
     }
 
     $chart = fetchYahooChart($symbol, $range, $interval);
