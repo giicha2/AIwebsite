@@ -423,6 +423,67 @@ if ($method === "GET") {
         exit;
     }
 
+    if ($mode === "history") {
+        $symbolInput = trim((string) ($_GET["symbol"] ?? $_GET["q"] ?? ""));
+        $period = strtolower(trim((string) ($_GET["period"] ?? "1mo")));
+
+        if (!in_array($period, ["1d", "1mo", "1y", "3y", "5y"], true)) {
+            $period = "1mo";
+        }
+
+        if (isCashSymbol($symbolInput) || preg_match('/현금|기타|cash|rest|other/iu', $symbolInput)) {
+            echo json_encode(
+                [
+                    "ok" => true,
+                    "symbol" => "CASH",
+                    "period" => $period,
+                    "points" => [],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+            exit;
+        }
+
+        if ($symbolInput === "") {
+            http_response_code(400);
+            echo json_encode(
+                ["ok" => false, "error" => "종목 심볼이 필요합니다.", "period" => $period],
+                JSON_UNESCAPED_UNICODE
+            );
+            exit;
+        }
+
+        $symbol = resolveStockSymbolFromQuery($symbolInput);
+        if ($symbol === "") {
+            $symbol = normalizeStockSymbol($symbolInput);
+        }
+
+        $rangeMap = [
+            "1d" => ["1d", "5m"],
+            "1mo" => ["1mo", "1d"],
+            "1y" => ["1y", "1d"],
+            "3y" => ["3y", "1wk"],
+            "5y" => ["5y", "1wk"],
+        ];
+        [$range, $interval] = $rangeMap[$period];
+        $points = fetchStockHistory($symbol, $range, $interval);
+
+        if ($period === "1d" && count($points) === 0) {
+            $points = fetchStockHistory($symbol, "5d", "15m");
+        }
+
+        echo json_encode(
+            [
+                "ok" => true,
+                "symbol" => $symbol,
+                "period" => $period,
+                "points" => $points,
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+        exit;
+    }
+
     $portfolio = loadPortfolio();
     echo json_encode(portfolioResponse($portfolio), JSON_UNESCAPED_UNICODE);
     exit;
