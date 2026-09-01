@@ -121,6 +121,10 @@
       state.lineChart.destroy();
       state.lineChart = null;
     }
+    if (state.sparkChart) {
+      state.sparkChart.destroy();
+      state.sparkChart = null;
+    }
   }
 
   function renderLoginGate(content) {
@@ -220,8 +224,12 @@
               })
             );
 
+            const sparkAttrs = isCash
+              ? ""
+              : ` data-symbol="${window.escapeHtml?.(symbol) || symbol}" data-name="${window.escapeHtml?.(shownName) || shownName}"`;
+
             return `
-              <li class="invest-item" data-id="${window.escapeHtml?.(item.id) || item.id}">
+              <li class="invest-item${isCash ? "" : " invest-item--chart"}" data-id="${window.escapeHtml?.(item.id) || item.id}"${sparkAttrs}>
                 ${logoHtml}
                 <div class="invest-item-main">
                   <strong>${window.escapeHtml?.(shownName) || shownName}</strong>
@@ -673,6 +681,374 @@
     sharesInput?.focus();
   }
 
+
+  const SPARK_PERIODS = [
+    { id: "1d", label: "일간" },
+    { id: "1mo", label: "월간" },
+    { id: "1y", label: "연간" },
+    { id: "3y", label: "3년" },
+    { id: "5y", label: "5년" },
+  ];
+  const sparkHistoryCache = new Map();
+  const sparkUi = {
+    showTimer: null,
+    hideTimer: null,
+    period: "1mo",
+    symbol: "",
+    name: "",
+    requestId: 0,
+    bound: false,
+  };
+
+  function ensureSparkPopover() {
+    let el = document.getElementById("invest-spark");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "invest-spark";
+    el.className = "invest-spark";
+    el.hidden = true;
+    el.setAttribute("role", "tooltip");
+    el.innerHTML = `
+      <div class="invest-spark-title" id="invest-spark-title"></div>
+      <div class="invest-range-tabs invest-spark-tabs" role="tablist">
+        ${SPARK_PERIODS.map(
+          (p) =>
+            `<button type="button" class="invest-range-btn${p.id === "1mo" ? " is-active" : ""}" data-spark-period="${p.id}">${p.label}</button>`
+        ).join("")}
+      </div>
+      <div class="invest-spark-canvas-wrap">
+        <canvas id="invest-spark-canvas" height="120" aria-label="종목 가격 차트"></canvas>
+      </div>
+      <p class="invest-spark-status" id="invest-spark-status" aria-live="polite"></p>
+    `;
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function clearSparkTimers() {
+    if (sparkUi.showTimer) {
+      clearTimeout(sparkUi.showTimer);
+      sparkUi.showTimer = null;
+    }
+    if (sparkUi.hideTimer) {
+      clearTimeout(sparkUi.hideTimer);
+      sparkUi.hideTimer = null;
+    }
+  }
+
+  function hideSparkPopover(state) {
+    clearSparkTimers();
+    const el = document.getElementById("invest-spark");
+    if (el) el.hidden = true;
+    sparkUi.symbol = "";
+    sparkUi.name = "";
+    if (state?.sparkChart) {
+      state.sparkChart.destroy();
+      state.sparkChart = null;
+    }
+  }
+
+  function positionSparkPopover(el, anchor) {
+    if (!el || !anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(320, Math.min(340, window.innerWidth * 0.92));
+    el.style.width = `${width}px`;
+    const height = el.offsetHeight || 220;
+    let left = rect.left;
+    let top = rect.bottom + 8;
+
+    if (left + width > window.innerWidth - 8) {
+      left = window.innerWidth - width - 8;
+    }
+    if (left < 8) left = 8;
+
+    if (top + height > window.innerHeight - 8) {
+      top = rect.top - height - 8;
+    }
+    if (top < 8) top = 8;
+
+    el.style.left = `${Math.round(left)}px`;
+    el.style.top = `${Math.round(top)}px`;
+  }
+
+  function formatSparkAxisLabel(dateStr, period) {
+    const raw = String(dateStr || "");
+    if (period === "1d") {
+      const time = raw.slice(11, 16);
+      return time || raw.slice(5);
+    }
+    if (period === "1mo") {
+      const m = Number(raw.slice(5, 7));
+      const d = Number(raw.slice(8, 10));
+      if (m && d) return `${m}/${d}`;
+    }
+    if (period === "1y") {
+      const y = raw.slice(2, 4);
+      const m = Number(raw.slice(5, 7));
+      if (m) return `${y}.${m}`;
+    }
+    const y = raw.slice(2, 4);
+    const m = raw.slice(5, 7);
+    return y && m ? `${y}.${m}` : raw;
+  }
+
+  function formatSparkPrice(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "";
+    const abs = Math.abs(num);
+    const digits = abs >= 1000 ? 0 : abs >= 10 ? 2 : 3;
+    return num.toLocaleString("ko-KR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  async function fetchSparkHistory(symbol, period) {
+    const key = `${symbol}|${period}`;
+    if (sparkHistoryCache.has(key)) {
+      return sparkHistoryCache.get(key);
+    }
+
+    const params = new URLSearchParams({
+      mode: "history",
+      symbol,
+      period,
+      v: String(Date.now()),
+    });
+    const response = await fetch(`api/portfolio.php?${params.toString()}`, {
+      headers: window.blogAuthHeaders?.() || {},
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => null);
+
+    if (response.status === 401) {
+      throw new Error("로그인이 필요합니다.");
+    }
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.error || "차트를 불러오지 못했습니다.");
+    }
+
+    sparkHistoryCache.set(key, data);
+    return data;
+  }
+
+  async function drawSparkChart(state, points, period) {
+    const canvas = document.getElementById("invest-spark-canvas");
+    if (!canvas) return;
+
+    const Chart = await loadChartJs();
+    if (state.sparkChart) {
+      state.sparkChart.destroy();
+      state.sparkChart = null;
+    }
+
+    const labels = (points || []).map((p) => formatSparkAxisLabel(p.date, period));
+    const values = (points || []).map((p) => Number(p.close) || 0);
+    const up = values.length >= 2 && values[values.length - 1] >= values[0];
+    const stroke = up ? "#34d399" : "#fb7185";
+
+    state.sparkChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: labels.length ? labels : ["데이터 없음"],
+        datasets: [
+          {
+            label: "종가",
+            data: values.length ? values : [0],
+            borderColor: stroke,
+            backgroundColor: up ? "rgba(52, 211, 153, 0.12)" : "rgba(251, 113, 133, 0.12)",
+            borderWidth: 1.6,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointHitRadius: 8,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 220 },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title(items) {
+                const idx = items[0]?.dataIndex ?? 0;
+                return points[idx]?.date || items[0]?.label || "";
+              },
+              label(context) {
+                return `종가 ${formatSparkPrice(context.raw)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: "#94a3b8",
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 5,
+              font: { size: 10 },
+            },
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: false,
+            ticks: {
+              color: "#94a3b8",
+              maxTicksLimit: 4,
+              font: { size: 10 },
+              callback(value) {
+                return formatSparkPrice(value);
+              },
+            },
+            grid: { color: "rgba(148, 163, 184, 0.15)" },
+          },
+        },
+      },
+    });
+  }
+
+  async function loadSparkFor(state, symbol, name, period, anchor) {
+    const popover = ensureSparkPopover();
+    const title = popover.querySelector("#invest-spark-title");
+    const status = popover.querySelector("#invest-spark-status");
+    const requestId = ++sparkUi.requestId;
+
+    sparkUi.symbol = symbol;
+    sparkUi.name = name;
+    sparkUi.period = period;
+
+    popover.querySelectorAll("[data-spark-period]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.sparkPeriod === period);
+    });
+    if (title) title.textContent = name ? `${name} · ${symbol}` : symbol;
+    if (status) status.textContent = "불러오는 중…";
+    popover.hidden = false;
+    positionSparkPopover(popover, anchor);
+
+    try {
+      const data = await fetchSparkHistory(symbol, period);
+      if (requestId !== sparkUi.requestId) return;
+      const points = Array.isArray(data.points) ? data.points : [];
+      if (!points.length) {
+        if (status) status.textContent = "표시할 시세가 없습니다.";
+        if (state.sparkChart) {
+          state.sparkChart.destroy();
+          state.sparkChart = null;
+        }
+        positionSparkPopover(popover, anchor);
+        return;
+      }
+      if (status) status.textContent = "";
+      await drawSparkChart(state, points, period);
+      positionSparkPopover(popover, anchor);
+    } catch (error) {
+      if (requestId !== sparkUi.requestId) return;
+      if (status) status.textContent = error.message || "차트를 불러오지 못했습니다.";
+      if (state.sparkChart) {
+        state.sparkChart.destroy();
+        state.sparkChart = null;
+      }
+      positionSparkPopover(popover, anchor);
+    }
+  }
+
+  function scheduleSparkShow(state, item) {
+    const symbol = String(item.dataset.symbol || "").trim();
+    if (!symbol || symbol.toUpperCase() === "CASH") return;
+
+    clearSparkTimers();
+    sparkUi.showTimer = setTimeout(() => {
+      sparkUi.showTimer = null;
+      loadSparkFor(state, symbol, String(item.dataset.name || symbol), sparkUi.period || "1mo", item);
+    }, 200);
+  }
+
+  function scheduleSparkHide(state) {
+    if (sparkUi.showTimer) {
+      clearTimeout(sparkUi.showTimer);
+      sparkUi.showTimer = null;
+    }
+    if (sparkUi.hideTimer) clearTimeout(sparkUi.hideTimer);
+    sparkUi.hideTimer = setTimeout(() => {
+      sparkUi.hideTimer = null;
+      hideSparkPopover(state);
+    }, 200);
+  }
+
+  function currentSparkState() {
+    return sparkUi.state || { sparkChart: null };
+  }
+
+  function bindSparkPopover(state) {
+    const popover = ensureSparkPopover();
+    sparkUi.state = state;
+    if (sparkUi.bound) return popover;
+
+    popover.addEventListener("mouseenter", () => {
+      if (sparkUi.hideTimer) {
+        clearTimeout(sparkUi.hideTimer);
+        sparkUi.hideTimer = null;
+      }
+    });
+    popover.addEventListener("mouseleave", () => scheduleSparkHide(currentSparkState()));
+    popover.addEventListener("focusin", () => {
+      if (sparkUi.hideTimer) {
+        clearTimeout(sparkUi.hideTimer);
+        sparkUi.hideTimer = null;
+      }
+    });
+    popover.addEventListener("focusout", (event) => {
+      if (popover.contains(event.relatedTarget)) return;
+      scheduleSparkHide(currentSparkState());
+    });
+    popover.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-spark-period]");
+      if (!btn) return;
+      event.preventDefault();
+      const period = btn.dataset.sparkPeriod || "1mo";
+      sparkUi.period = period;
+      popover.querySelectorAll("[data-spark-period]").forEach((item) => {
+        item.classList.toggle("is-active", item === btn);
+      });
+      if (sparkUi.symbol) {
+        const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(sparkUi.symbol) : sparkUi.symbol.replace(/"/g, '\"');
+        const anchor = document.querySelector(`.invest-item--chart[data-symbol="${escaped}"]`);
+        loadSparkFor(currentSparkState(), sparkUi.symbol, sparkUi.name, period, anchor || popover);
+      }
+    });
+
+    sparkUi.bound = true;
+    return popover;
+  }
+
+  function bindHoldingSparkHover(state) {
+    bindSparkPopover(state);
+    document.querySelectorAll(".invest-item--chart").forEach((item) => {
+      item.addEventListener("mouseenter", () => scheduleSparkShow(state, item));
+      item.addEventListener("mouseleave", (event) => {
+        const popover = document.getElementById("invest-spark");
+        if (popover && (popover.contains(event.relatedTarget) || event.relatedTarget === popover)) {
+          return;
+        }
+        scheduleSparkHide(state);
+      });
+      item.addEventListener("focusin", () => scheduleSparkShow(state, item));
+      item.addEventListener("focusout", (event) => {
+        const popover = document.getElementById("invest-spark");
+        if (item.contains(event.relatedTarget)) return;
+        if (popover && popover.contains(event.relatedTarget)) return;
+        scheduleSparkHide(state);
+      });
+    });
+  }
+
   function bindInvestUi(state, data) {
     const form = document.getElementById("invest-add-form");
     const status = document.getElementById("invest-form-status");
@@ -741,6 +1117,7 @@
 
     document.querySelectorAll(".invest-edit-btn").forEach((button) => {
       button.addEventListener("click", () => {
+        hideSparkPopover(state);
         try {
           const holding = JSON.parse(decodeURIComponent(button.dataset.edit || ""));
           setFormEditMode(form, holding);
@@ -782,9 +1159,12 @@
       state.sortMode = state.sortMode === "value-asc" ? "value-desc" : "value-asc";
       await paintInvestPage(state, data);
     });
+
+    bindHoldingSparkHover(state);
   }
 
   async function paintInvestPage(state, data) {
+    hideSparkPopover(state);
     destroyCharts(state);
     const content = document.getElementById("content");
     if (!state.sortMode) state.sortMode = "value-desc";
@@ -878,6 +1258,7 @@
     const state = {
       pieChart: null,
       lineChart: null,
+      sparkChart: null,
       rangeMode: "daily",
       sortMode: "value-desc",
     };
