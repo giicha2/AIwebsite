@@ -161,10 +161,11 @@ function parseHashRoute() {
 const navTabs = ["home", "projects", "gallery", "blog", "invest", "retire"];
 
 function setActiveTab(tab) {
+  const nav = tab === "retire" ? "invest" : tab;
   document.querySelectorAll(".tab").forEach((item) => {
     item.classList.toggle(
       "active",
-      navTabs.includes(tab) && item.dataset.tab === tab
+      navTabs.includes(nav) && item.dataset.tab === nav
     );
   });
 }
